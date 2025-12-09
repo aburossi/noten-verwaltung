@@ -85,22 +85,39 @@ def render(subject):
         
         with st.expander(f"📋 {link_icon}{assignment['name']} {avg_display}"):
             
-            # --- HEADER: METADATA & ACTIONS (Unverändert) ---
+            # --- HEADER: METADATA & ACTIONS ---
             col1, col2, col3 = st.columns([2, 2, 1])
             
+            # SPALTE 1: Datum & Link (HIER GEÄNDERT)
             with col1:
-                st.caption(f"Max: {assignment['maxPoints']} Pkt | Skala: {assignment['scaleType']}")
-                st.caption(f"Datum: {datetime.fromisoformat(assignment['date']).strftime('%d.%m.%Y')}")
-                # NEW: URL Editor
+                st.caption(f"Max: {assignment['maxPoints']} Pkt")
+                
+                # 1. Datum bearbeiten
+                current_dt = datetime.fromisoformat(assignment['date'])
+                new_date = st.date_input(
+                    "Datum",
+                    value=current_dt.date(),
+                    key=f"date_{assignment['id']}",
+                    format="DD.MM.YYYY"
+                )
+                
+                if new_date != current_dt.date():
+                    # Datum aktualisieren (Uhrzeit auf 00:00 setzen)
+                    assignment['date'] = datetime.combine(new_date, datetime.min.time()).isoformat()
+                    save_all_data()
+                    st.rerun() # Seite neu laden, um Sortierung zu aktualisieren
+                
+                # 2. URL Editor
                 current_url = assignment.get('url', '')
                 new_url = st.text_input("LMS Link", value=current_url, key=f"url_{assignment['id']}", placeholder="https://...")
                 
                 if new_url != current_url:
                     assignment['url'] = new_url.strip()
-                    save_all_data() # Save immediately on change (Streamlit rerun triggers on blur/enter)
+                    save_all_data()
 
+            # SPALTE 2: Bewertungseinstellungen (Gewicht & Skala)
             with col2:
-                # Edit Weight on the fly
+                # 1. Gewichtung bearbeiten
                 new_weight = st.number_input(
                     "Gewichtung",
                     min_value=0.1,
@@ -113,8 +130,32 @@ def render(subject):
                     assignment['weight'] = new_weight
                     log_audit_event("Gewichtung geändert", f"{assignment['name']}: {old_w} -> {new_weight}")
                     save_all_data()
+
+                # 2. Skala bearbeiten
+                current_scale = assignment.get('scaleType', '60% Scale')
+                scale_options = list(st.session_state.config['scales'].keys())
+                
+                try:
+                    idx = scale_options.index(current_scale)
+                except ValueError:
+                    idx = 0
+
+                new_scale = st.selectbox(
+                    "Bewertungsskala",
+                    options=scale_options,
+                    index=idx,
+                    key=f"scale_{assignment['id']}"
+                )
+                
+                if new_scale != current_scale:
+                    assignment['scaleType'] = new_scale
+                    log_audit_event("Skala geändert", f"{assignment['name']}: {current_scale} -> {new_scale}")
+                    save_all_data()
+                    st.rerun()
             
+            # SPALTE 3: Löschen
             with col3:
+                st.write("") # Spacer für Ausrichtung
                 if st.button("🗑️", key=f"del_{assignment['id']}", help="Prüfung löschen"):
                     log_audit_event("Prüfung gelöscht", f"Name: {assignment['name']}")
                     st.session_state.assignments.remove(assignment)
@@ -169,38 +210,36 @@ def render(subject):
 
             st.write("---")
             
-            # --- GRADE ENTRY FORM: GEÄNDERT AUF NOTE STATT PUNKTE ---
-            st.write("**Noteneingabe (Note 1.0 bis 6.0):**")
+            # --- GRADE ENTRY FORM: GEÄNDERT FÜR LÖSCH-FUNKTION ---
+            st.markdown("**Noteneingabe:**")
+            st.caption("Geben Sie eine Note zwischen 1.0 und 6.0 ein. **Geben Sie 0.0 ein, um eine Note zu löschen.**")
             
             with st.form(f"grades_form_{assignment['id']}"):
                 # Grid Layout for inputs
                 cols = st.columns(3)
                 
-                # We need to capture inputs to process them on submit
+                # Capture inputs
                 input_data = {}
                 
                 for idx, student in enumerate(st.session_state.students):
                     with cols[idx % 3]:
-                        # Note: We display the current grade as the initial value
                         current_grade = assignment['grades'].get(student['id'])
                         
-                        # Label construction
                         label = f"{student['Vorname']} {student['Nachname']}"
                         
-                        # Input: DIRECT GRADE (Teacher enters grade 1.0-6.0)
+                        # Input: Allow 0.0 for deletion
                         new_grade_input = st.number_input(
                             label,
-                            min_value=1.0,
+                            min_value=0.0,  # HIER GEÄNDERT: Erlaubt 0.0
                             max_value=6.0,
-                            value=float(current_grade) if current_grade else None, # Set current grade as default
-                            step=0.1, # Allow 0.1 increments
-                            format="%.1f", # Display with one decimal place
+                            value=float(current_grade) if current_grade else 0.0, # Default ist 0.0 wenn keine Note
+                            step=0.1, 
+                            format="%.1f",
                             key=f"g_{assignment['id']}_{student['id']}"
                         )
                         
-                        # Only store if a valid grade (1.0 to 6.0) is entered
-                        if new_grade_input is not None and 1.0 <= new_grade_input <= 6.0:
-                            # Round to one decimal place before storing
+                        # Store input
+                        if new_grade_input is not None:
                             input_data[student['id']] = round(new_grade_input, 1)
 
                 # Submit Button
@@ -209,28 +248,30 @@ def render(subject):
                     
                     for student_id, new_grade in input_data.items():
                         old_grade = assignment['grades'].get(student_id)
-                        
-                        # Ensure comparison works even if old_grade is stored as string/float
                         old_grade_float = float(old_grade) if old_grade is not None else None
                         
-                        # Only update if value is different
-                        if old_grade_float != new_grade:
-                            # Update assignment data directly with the new grade
-                            assignment['grades'][student_id] = new_grade
+                        # CASE 1: Note Löschen (Eingabe 0.0, aber es gab vorher eine Note)
+                        if new_grade == 0.0 and old_grade_float is not None:
+                            del assignment['grades'][student_id] # Eintrag entfernen
                             
-                            # Find student name for log
+                            # Log Name resolution
                             s_obj = next((s for s in st.session_state.students if s['id'] == student_id), None)
                             s_name = f"{s_obj['Vorname']} {s_obj['Nachname']}" if s_obj else student_id
+                            changes_log.append(f"{s_name}: {old_grade_float} -> Gelöscht")
                             
-                            changes_log.append(f"{s_name}: {old_grade_float if old_grade_float else 'N/A'} -> {new_grade}")
+                        # CASE 2: Note Ändern/Neu Eintragen (Eingabe > 0 und anders als vorher)
+                        elif new_grade > 0.0 and new_grade != old_grade_float:
+                            assignment['grades'][student_id] = new_grade
+                            
+                            s_obj = next((s for s in st.session_state.students if s['id'] == student_id), None)
+                            s_name = f"{s_obj['Vorname']} {s_obj['Nachname']}" if s_obj else student_id
+                            changes_log.append(f"{s_name}: {old_grade_float if old_grade_float else 'Leer'} -> {new_grade}")
                         
-                    
                     if changes_log:
-                        # Save and Log
-                        details = f"Prüfung: {assignment['name']}. {len(changes_log)} Änderung(en) (Direkte Note)."
-                        log_audit_event("Noten eingetragen", details)
+                        details = f"Prüfung: {assignment['name']}. {len(changes_log)} Änderung(en)."
+                        log_audit_event("Noten geändert", details)
                         save_all_data()
-                        st.success("✅ Noten gespeichert!")
+                        st.success("✅ Änderungen gespeichert!")
                         st.rerun()
                     else:
-                        st.info("Keine Änderungen erkannt (Note ändern zum Speichern).")
+                        st.info("Keine Änderungen erkannt.")
