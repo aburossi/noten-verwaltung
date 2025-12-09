@@ -6,7 +6,7 @@ from utils.grading import calculate_grade
 def render(subject):
     """
     Renders the grading interface for a specific subject.
-    Includes: Assignment creation, Weight adjustment, Grade entry, and Smart Automation Tools.
+    Includes: Assignment creation, Weight adjustment, Grade entry, Smart Automation Tools, and LMS Linking.
     """
     st.title(f"📝 {subject}")
     
@@ -29,6 +29,9 @@ def render(subject):
                 default_weight = st.session_state.config['weightDefaults'][assignment_type]
                 weight = st.number_input("Gewicht", min_value=0.1, value=default_weight, step=0.1)
             
+            # NEW: LMS Link Input
+            assignment_url = st.text_input("LMS Link (Optional)", placeholder="https://moodle.bbw.ch/...", help="Link zum Test im LMS")
+            
             scale_type = st.selectbox("Bewertungsskala", options=list(st.session_state.config['scales'].keys()))
             
             if st.form_submit_button("Prüfung erstellen"):
@@ -41,6 +44,7 @@ def render(subject):
                         'weight': weight,
                         'maxPoints': max_points,
                         'scaleType': scale_type,
+                        'url': assignment_url.strip(),  # Save URL
                         'date': datetime.now().isoformat(),
                         'grades': {}
                     }
@@ -74,8 +78,11 @@ def render(subject):
         if grades_vals:
             avg = sum(grades_vals) / len(grades_vals)
             avg_display = f" (Ø {avg:.2f})"
-            
-        with st.expander(f"📋 {assignment['name']} {avg_display}"):
+        
+        # Indicator if Link is present
+        link_icon = "🔗 " if assignment.get('url') else ""
+        
+        with st.expander(f"📋 {link_icon}{assignment['name']} {avg_display}"):
             
             # --- HEADER: METADATA & ACTIONS ---
             col1, col2, col3 = st.columns([2, 2, 1])
@@ -83,6 +90,13 @@ def render(subject):
             with col1:
                 st.caption(f"Max: {assignment['maxPoints']} Pkt | Skala: {assignment['scaleType']}")
                 st.caption(f"Datum: {datetime.fromisoformat(assignment['date']).strftime('%d.%m.%Y')}")
+                # NEW: URL Editor
+                current_url = assignment.get('url', '')
+                new_url = st.text_input("LMS Link", value=current_url, key=f"url_{assignment['id']}", placeholder="https://...")
+                
+                if new_url != current_url:
+                    assignment['url'] = new_url.strip()
+                    save_all_data() # Save immediately on change (Streamlit rerun triggers on blur/enter)
 
             with col2:
                 # Edit Weight on the fly

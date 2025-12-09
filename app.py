@@ -21,7 +21,7 @@ import pages_ui.data_io as p_data_io
 # ==========================================
 def render_class_dashboard():
     st.title("🏫 Meine Klassen")
-    st.markdown("Wähle eine Klasse aus, um die Noten zu verwalten.")
+    st.markdown("Verwalten Sie Ihre Klassen oder erstellen Sie eine neue.")
 
     registry = get_class_registry()
     
@@ -32,10 +32,32 @@ def render_class_dashboard():
         with cols[idx % 3]:
             # Card Container
             with st.container(border=True):
-                st.subheader(f"🎓 {cls['name']}")
+                col_header, col_opts = st.columns([5, 1])
+                with col_header:
+                    st.subheader(f"🎓 {cls['name']}")
                 
-                # Get quick stats without loading full state if possible, 
-                # or just use what is in state if it matches
+                # DELETE BUTTON (Popover for safety)
+                with col_opts:
+                    with st.popover("🗑️", help="Klasse löschen"):
+                        st.markdown(f"**{cls['name']}** wirklich löschen?")
+                        st.warning("Dies kann nicht rückgängig gemacht werden!")
+                        
+                        if st.button("Ja, löschen", key=f"del_confirm_{cls['id']}", type="primary"):
+                            # 1. Delete Logic
+                            delete_class(cls['id'])
+                            
+                            # 2. Check if we deleted the active class
+                            if st.session_state.get('current_class_id') == cls['id']:
+                                st.session_state.current_class_id = None
+                                # Try to switch to another class if available
+                                new_reg = get_class_registry()
+                                if new_reg:
+                                    st.session_state.current_class_id = new_reg[0]['id']
+                                    switch_class(new_reg[0]['id'])
+                            
+                            st.rerun()
+
+                # Get quick stats
                 student_count = "n/a"
                 try:
                     s_path = os.path.join(CLASSES_DIR, cls['id'], "students.json")
@@ -46,18 +68,15 @@ def render_class_dashboard():
                 except:
                     student_count = "?"
 
-                st.caption(f"Schüler: {student_count}")
-                st.caption(f"ID: {cls['id']}")
+                st.caption(f"Schüler: {student_count} | ID: {cls['id'][-4:]}")
                 
                 # The "Open" Button
-                # We use a callback to switch class BEFORE the rerun
                 if st.button(f"Öffnen", key=f"open_{cls['id']}", use_container_width=True):
                     switch_class(cls['id'])
-                    # Set the navigation to Overview so we don't stay on the dashboard
                     st.session_state.current_page = "📊 Übersicht"
                     st.rerun()
 
-    # Add New Class Button (Clean UI)
+    # Add New Class Button
     with cols[(len(registry)) % 3]:
         with st.container(border=True):
             st.markdown("#### ➕ Neue Klasse")
@@ -96,14 +115,16 @@ def main():
         
         # Display Current Class Name prominently
         registry = get_class_registry()
-        current_class = next((c for c in registry if c['id'] == st.session_state.current_class_id), None)
+        current_class = next((c for c in registry if c['id'] == st.session_state.get('current_class_id')), None)
+        
         if current_class:
             st.markdown(f"### 🎓 {current_class['name']}")
+        else:
+            st.markdown("### 🏠 Dashboard")
         
         st.write("---")
         
         # NAVIGATION MENU
-        # We handle navigation manually to allow programmatic switching
         options = [
             "🏠 Alle Klassen",
             "📊 Übersicht",
@@ -115,30 +136,41 @@ def main():
             "📁 Import/Export"
         ]
         
-        # If the state is not in options (e.g. after a reload), default to Home
+        # Handle case where no class is selected but we are on a class page
+        if not current_class and st.session_state.current_page != "🏠 Alle Klassen":
+            st.session_state.current_page = "🏠 Alle Klassen"
+
         if st.session_state.current_page not in options:
             st.session_state.current_page = "🏠 Alle Klassen"
 
-        selected_page = st.radio(
-            "Navigation",
-            options,
-            index=options.index(st.session_state.current_page),
-            label_visibility="collapsed"
-        )
-        
-        # Update state if user clicked something new
-        if selected_page != st.session_state.current_page:
-            st.session_state.current_page = selected_page
-            st.rerun()
+        # Disable navigation if no class selected (except Dashboard)
+        if not current_class:
+            st.info("Bitte wählen Sie eine Klasse aus.")
+            if st.button("Zum Dashboard"):
+                st.session_state.current_page = "🏠 Alle Klassen"
+                st.rerun()
+        else:
+            selected_page = st.radio(
+                "Navigation",
+                options,
+                index=options.index(st.session_state.current_page),
+                label_visibility="collapsed"
+            )
+            
+            # Update state if user clicked something new
+            if selected_page != st.session_state.current_page:
+                st.session_state.current_page = selected_page
+                st.rerun()
 
         st.write("---")
         st.subheader("System")
         
-        if st.button("💾 Speichern", use_container_width=True):
-            if save_all_data(create_auto_backup=True):
-                st.success("✅ Gespeichert!")
-            else:
-                st.error("❌ Fehler")
+        if current_class:
+            if st.button("💾 Speichern", use_container_width=True):
+                if save_all_data(create_auto_backup=True):
+                    st.success("✅ Gespeichert!")
+                else:
+                    st.error("❌ Fehler")
         
         if st.button("📦 Backup", use_container_width=True):
             success, msg = create_backup(auto=False)
@@ -152,12 +184,7 @@ def main():
         render_class_dashboard()
         
     # 2. Standard Pages (require a loaded class)
-    else:
-        # Ensure a class is actually loaded (safety check)
-        if not st.session_state.students and not st.session_state.assignments:
-             # If empty, it might just be a fresh class, which is fine.
-             pass
-
+    elif current_class:
         if st.session_state.current_page == "📊 Übersicht":
             p_overview.render()
         elif st.session_state.current_page == "📈 Analyse":

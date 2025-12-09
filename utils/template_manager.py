@@ -29,7 +29,7 @@ def render_template(template, student, subject_name, weighted_avg, assignments, 
     Returns:
         subject_line (str)
         body_text (str): For plain text email clients
-        body_html (str): For modern email clients (with table layout)
+        body_html (str): For modern email clients (with table layout and clickable LMS links)
     """
     
     # 1. Sort assignments by date
@@ -41,7 +41,11 @@ def render_template(template, student, subject_name, weighted_avg, assignments, 
         grade = a['grades'].get(student['id'])
         if grade:
             date_str = datetime.fromisoformat(a['date']).strftime("%d.%m.%Y")
-            grades_list_text += f"• {a['name']} ({date_str}): {grade}\n"
+            
+            # Text Version: Append link if available
+            link_txt = f" (LMS: {a['url']})" if a.get('url') else ""
+            
+            grades_list_text += f"• {a['name']}{link_txt} ({date_str}): {grade}\n"
 
     # 3. Build HTML Table
     rows_html = ""
@@ -49,9 +53,16 @@ def render_template(template, student, subject_name, weighted_avg, assignments, 
         grade = a['grades'].get(student['id'])
         if grade:
             date_str = datetime.fromisoformat(a['date']).strftime("%d.%m.%Y")
+            
+            # HTML Version: Clickable Name if URL exists
+            if a.get('url'):
+                display_name = f'<a href="{a["url"]}" target="_blank" style="color: #007BFF; text-decoration: none; font-weight: bold;">{a["name"]} 🔗</a>'
+            else:
+                display_name = a['name']
+                
             rows_html += f"""
             <tr>
-                <td style="padding:8px; border-bottom:1px solid #ddd;">{a['name']}</td>
+                <td style="padding:8px; border-bottom:1px solid #ddd;">{display_name}</td>
                 <td style="padding:8px; border-bottom:1px solid #ddd;">{date_str}</td>
                 <td style="padding:8px; border-bottom:1px solid #ddd;"><strong>{grade}</strong></td>
             </tr>
@@ -80,14 +91,14 @@ def render_template(template, student, subject_name, weighted_avg, assignments, 
     </div>
     """
 
-    # 4. Variable Map (Added sender_name)
+    # 4. Variable Map
     variables = {
         "{firstname}": student['Vorname'],
         "{lastname}": student['Nachname'],
         "{subject}": subject_name,
         "{average}": f"{weighted_avg:.2f}" if weighted_avg else "-",
         "{date}": datetime.now().strftime("%d.%m.%Y"),
-        "{sender_name}": sender_name  # <--- FIX IS HERE
+        "{sender_name}": sender_name
     }
 
     subject_line = template['subject_line']

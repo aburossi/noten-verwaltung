@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import json
-import io  # <--- Added for in-memory file handling
+import io 
 from datetime import datetime
 from utils.data_manager import save_all_data, log_audit_event
 from utils.grading import calculate_grade
@@ -83,14 +83,14 @@ def render():
             with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
                 df_template.to_excel(writer, index=False, sheet_name='Notenimport')
                 
-                # Auto-adjust column width (UX improvement)
+                # Auto-adjust column width
                 workbook = writer.book
                 worksheet = writer.sheets['Notenimport']
                 format_header = workbook.add_format({'bold': True, 'bg_color': '#D3D3D3'})
                 
                 for col_num, value in enumerate(df_template.columns.values):
                     worksheet.write(0, col_num, value, format_header)
-                    worksheet.set_column(col_num, col_num, 20) # Set width to 20
+                    worksheet.set_column(col_num, col_num, 20)
             
             # 3. Download Button
             file_name = f"Notenliste_Vorlage_{datetime.now().strftime('%Y-%m-%d')}.xlsx"
@@ -121,11 +121,14 @@ def render():
                     
                     weight = st.number_input("Gewicht", value=1.0, step=0.1)
                     
+                    # NEW: LMS Link Input for Import
+                    assignment_url = st.text_input("LMS Link (Optional)", placeholder="https://moodle.bbw.ch/...", help="Wird in den Emails als klickbarer Link angezeigt.")
+                    
                     if st.form_submit_button("📥 Importieren"):
                         if not assignment_name:
                             st.error("Name fehlt")
                         else:
-                            # Robustly get Max Points (check if column exists, else default)
+                            # Robustly get Max Points
                             if 'Max.' in df.columns and pd.notna(df['Max.'].iloc[0]):
                                 max_points = df['Max.'].iloc[0]
                             else:
@@ -134,19 +137,24 @@ def render():
 
                             new_assignment = {
                                 'id': f"assignment_{datetime.now().timestamp()}",
-                                'name': assignment_name, 'subject': subject, 'type': assignment_type,
-                                'weight': weight, 'maxPoints': float(max_points), 'scaleType': scale_type,
-                                'date': datetime.now().isoformat(), 'grades': {}
+                                'name': assignment_name, 
+                                'subject': subject, 
+                                'type': assignment_type,
+                                'weight': weight, 
+                                'maxPoints': float(max_points), 
+                                'scaleType': scale_type,
+                                'url': assignment_url.strip(), # Save URL
+                                'date': datetime.now().isoformat(), 
+                                'grades': {}
                             }
                             
                             count = 0
                             for _, row in df.iterrows():
                                 anmeldename = str(row['Anmeldename']).strip()
-                                points = row.get('Punkte', 0) # Look for 'Punkte' column
+                                points = row.get('Punkte', 0)
                                 student = next((s for s in st.session_state.students if s['Anmeldename'] == anmeldename), None)
                                 
                                 if student and pd.notna(points):
-                                    # Allow 0 points, but skip if empty/NaN
                                     try:
                                         p_val = float(points)
                                         grade_info = calculate_grade(p_val, float(max_points), scale_type)
@@ -172,7 +180,6 @@ def render():
         if not st.session_state.students:
             st.info("Keine Schüler/innen in dieser Klasse.")
         else:
-            # Dropdown to select student
             student_to_delete = st.selectbox(
                 "Schüler/in auswählen",
                 options=st.session_state.students,
@@ -182,17 +189,14 @@ def render():
             st.warning(f"⚠️ Warnung: Dies löscht {student_to_delete['Vorname']} {student_to_delete['Nachname']} und alle zugehörigen Noten aus dieser Klasse.")
             
             if st.button("🗑️ Schüler/in endgültig löschen", type="primary"):
-                # 1. Remove from students list
                 st.session_state.students.remove(student_to_delete)
                 
-                # 2. Cleanup: Remove grades for this student from all assignments
                 cleaned_grades_count = 0
                 for assignment in st.session_state.assignments:
                     if student_to_delete['id'] in assignment['grades']:
                         del assignment['grades'][student_to_delete['id']]
                         cleaned_grades_count += 1
                 
-                # 3. Log and Save
                 log_audit_event("Schüler gelöscht", f"Name: {student_to_delete['Vorname']} {student_to_delete['Nachname']}, Noten bereinigt: {cleaned_grades_count}")
                 save_all_data()
                 

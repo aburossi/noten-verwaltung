@@ -143,7 +143,7 @@ def render():
             t_cat = st.selectbox("Kategorie", ["Bericht", "Intervention", "Lob", "Info"])
             t_subj = st.text_input("Betreffzeile", value="Notenstand {subject}")
             st.caption("Verwenden Sie `{grades_list}` für die Tabelle und `{sender_name}` für Ihre Unterschrift.")
-            t_body = st.text_area("Nachricht", height=200, value="Hallo {firstname},\n\nanbei deine Notenübersicht.\n\n{grades_list}\n\nLieber Gruss,\n{sender_name}")
+            t_body = st.text_area("Nachricht", height=200, value="Hallo {firstname},\n\nanbei deine Notenübersicht.\n\n{grades_list}\n\nLieber Gruss\n{sender_name}")
             
             if st.form_submit_button("💾 Vorlage speichern"):
                 save_new_template(t_name, t_cat, t_subj, t_body)
