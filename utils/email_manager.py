@@ -9,7 +9,6 @@ from .constants import CLASSES_DIR
 from .grading import calculate_weighted_average
 
 def log_email_event(student_id, student_name, subject, status, error_msg=""):
-    """Log an email event to the session state and save to class specific file"""
     event = {
         'timestamp': datetime.now().isoformat(),
         'student_id': student_id,
@@ -18,22 +17,19 @@ def log_email_event(student_id, student_name, subject, status, error_msg=""):
         'status': status,
         'error': error_msg
     }
-    
-    # Update Session State
     st.session_state.email_log.insert(0, event)
-    
-    # Save to the specific class folder
-    # We construct the path dynamically using the current class ID
     if 'current_class_id' in st.session_state:
         class_id = st.session_state.current_class_id
         log_file_path = os.path.join(CLASSES_DIR, class_id, "email_log.json")
         save_json(log_file_path, st.session_state.email_log)
 
 def get_last_email_status(student_id, subject):
-    """Get the last email status for a student/subject combo"""
-    # Ensure email_log exists in session state
     if 'email_log' not in st.session_state:
         return None
+    for log in st.session_state.email_log:
+        if log['student_id'] == student_id and log['subject'] == subject:
+            return log
+    return None
         
     for log in st.session_state.email_log:
         if log['student_id'] == student_id and log['subject'] == subject:
@@ -69,8 +65,12 @@ def generate_email_content(student, subject, include_average=True):
         'body': body
     }
 
-def send_email(recipient, subject_line, body, sender_email, sender_password):
-    """Send email via SMTP"""
+def send_email(recipient, subject_line, text_body, sender_email, sender_password, html_body=None):
+    """
+    Send email via SMTP.
+    Args:
+        html_body (str): Optional pre-formatted HTML string. If None, generates simple HTML from text_body.
+    """
     try:
         config = st.session_state.config['email']
         
@@ -79,16 +79,23 @@ def send_email(recipient, subject_line, body, sender_email, sender_password):
         msg['To'] = recipient
         msg['Subject'] = subject_line
         
-        # Plain text version
-        text_part = MIMEText(body, 'plain', 'utf-8')
+        # 1. Plain text version (Fallback)
+        text_part = MIMEText(text_body, 'plain', 'utf-8')
         msg.attach(text_part)
         
-        # HTML version
-        html_body = body.replace('\n', '<br>')
-        html_part = MIMEText(f'<html><body style="font-family: Arial, sans-serif;">{html_body}</body></html>', 'html', 'utf-8')
+        # 2. HTML version
+        if html_body:
+            # Use the fancy table layout provided
+            final_html = html_body
+        else:
+            # Fallback: Convert newlines to breaks
+            clean_body = text_body.replace('\n', '<br>')
+            final_html = f'<html><body style="font-family: Arial, sans-serif;">{clean_body}</body></html>'
+
+        html_part = MIMEText(final_html, 'html', 'utf-8')
         msg.attach(html_part)
         
-        # Send email
+        # Send
         with smtplib.SMTP_SSL(config['smtp_server'], config['smtp_port']) as server:
             server.login(sender_email, sender_password)
             server.send_message(msg)

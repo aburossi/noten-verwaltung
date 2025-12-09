@@ -36,12 +36,12 @@ DEFAULT_TEMPLATES = [
         "name": "Standard Notenbericht",
         "category": "Bericht",
         "subject_line": "Notenbericht {subject}",
-        "body": "Hallo {firstname},\n\nHier ist deine aktuelle Übersicht für {subject}.\n\n{grades_list}\n\nDein Schnitt: {average}\n\nGruss,\n{sender_name}" # Optional: Variable für Absender
+        "body": "Hallo {firstname},\n\nHier ist deine aktuelle Übersicht für {subject}.\n\n{grades_list}\n\nDein Schnitt: {average}\n\nLieber Gruss\n{sender_name}" # Optional: Variable für Absender
     },
     {
         "name": "Warnung (Ungenügend)",
         "category": "Intervention",
         "subject_line": "WICHTIG: Notenstand {subject}",
-        "body": "Hallo {firstname},\n\nLeider ist dein aktueller Schnitt in {subject} ungenügend ({average}).\n\nBitte melde dich bei mir für einen Termin.\n\nGruss,\n{sender_name}"
+        "body": "Hallo {firstname},\n\nLeider ist dein aktueller Schnitt in {subject} ungenügend ({average}).\n\nBitte melde dich bei mir für einen Termin.\n\nLieber Gruss\n{sender_name}"
     }
 ]
