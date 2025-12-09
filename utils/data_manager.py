@@ -191,8 +191,25 @@ def save_json(filepath, data):
         return True
     except: return False
 
-def get_class_registry(): return load_json(CLASSES_REGISTRY_FILE, [])
-
+def get_class_registry():
+    """
+    Load the class registry.
+    
+    SECURITY FEATURE:
+    If a specific environment variable is set (e.g., on Streamlit Cloud),
+    we can force the app to ONLY show the Demo Class, effectively hiding
+    any empty/private class folders that might have been pushed by accident.
+    """
+    registry = load_json(CLASSES_REGISTRY_FILE, [])
+    
+    # Check if we are in "Demo Mode" (Streamlit Cloud)
+    # You will set this secret in the Streamlit Dashboard later.
+    if os.environ.get("DEMO_MODE") == "TRUE":
+        # Only return the specific demo class ID
+        demo_id = "class_demo_2025"
+        return [c for c in registry if c['id'] == demo_id]
+        
+    return registry
 def create_new_class(class_name):
     class_id = f"class_{datetime.now().strftime('%Y%m%d%H%M%S')}"
     registry = get_class_registry()
