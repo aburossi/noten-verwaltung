@@ -1,0 +1,37 @@
+# ===========================
+# 🛡️ DATA PRIVACY (CRITICAL)
+# ===========================
+# Ignore all actual data and configuration files
+data/
+backups/
+
+# Exception: Keep the directory structure, but not the files
+# (Uncomment the next lines if you want empty folders to be tracked)
+# !data/.gitkeep
+# !backups/.gitkeep
+
+# ===========================
+# 🐍 PYTHON / ENVIRONMENT
+# ===========================
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+env/
+venv/
+*.log
+
+# ===========================
+# 🎈 STREAMLIT
+# ===========================
+.streamlit/secrets.toml
+# Keep config.toml if you have theme settings you want to share
+# .streamlit/config.toml
+
+# ===========================
+# 📊 DATA EXPORTS
+# ===========================
+*.csv
+*.xlsx
+*.json
+*.zip
