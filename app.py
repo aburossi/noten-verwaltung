@@ -13,9 +13,8 @@ import pages_ui.overview as p_overview
 import pages_ui.subjects as p_subjects
 import pages_ui.analytics as p_analytics
 import pages_ui.emails as p_emails
-import pages_ui.backups as p_backups
 import pages_ui.data_io as p_data_io
-import pages_ui.quick_entry as p_quick_entry # NEW IMPORT
+import pages_ui.quick_entry as p_quick_entry
 
 # ==========================================
 # NEW: LANDING PAGE (CLASS DASHBOARD)
@@ -66,8 +65,26 @@ def render_class_dashboard():
 
                 st.caption(f"Schüler: {student_count} | ID: {cls['id'][-4:]}")
                 
-                # The "Open" Button
-                if st.button(f"Öffnen", key=f"open_{cls['id']}", use_container_width=True):
+                # --- NEW: DIRECT SUBJECT LINKS ---
+                st.write("") # Spacer
+                st.markdown("**Schnellzugriff:**")
+                col_sub1, col_sub2 = st.columns(2)
+                
+                with col_sub1:
+                    if st.button("GESELLSCHAFT", key=f"btn_ges_{cls['id']}", use_container_width=True):
+                        switch_class(cls['id'])
+                        st.session_state.current_page = "📝 GESELLSCHAFT"
+                        st.rerun()
+                
+                with col_sub2:
+                    if st.button("SPRACHE", key=f"btn_spr_{cls['id']}", use_container_width=True):
+                        switch_class(cls['id'])
+                        st.session_state.current_page = "📝 SPRACHE"
+                        st.rerun()
+                
+                st.write("")
+                # The "Open Dashboard" Button
+                if st.button(f"📊 Dashboard öffnen", key=f"open_{cls['id']}", use_container_width=True):
                     switch_class(cls['id'])
                     st.session_state.current_page = "📊 Übersicht"
                     st.rerun()
@@ -122,13 +139,12 @@ def main():
         options = [
             "🏠 Alle Klassen",
             "📊 Übersicht",
-            "📝 Schnelleingabe", # NEW
+            "📝 Schnelleingabe",
             "📈 Analyse", 
             "📝 GESELLSCHAFT", 
             "📝 SPRACHE", 
             "✉️ Smart Emails", 
-            "💾 Backup & Log", 
-            "📁 Import/Export"
+            "📁 Import/Export/Backup" # Renamed
         ]
         
         if not current_class and st.session_state.current_page != "🏠 Alle Klassen":
@@ -164,7 +180,7 @@ def main():
                 else:
                     st.error("❌ Fehler")
         
-        if st.button("📦 Backup", use_container_width=True):
+        if st.button("📦 Backup (Schnell)", use_container_width=True):
             success, msg = create_backup(auto=False)
             if success: st.info(msg)
             else: st.error(msg)
@@ -176,7 +192,7 @@ def main():
     elif current_class:
         if st.session_state.current_page == "📊 Übersicht":
             p_overview.render()
-        elif st.session_state.current_page == "📝 Schnelleingabe": # NEW ROUTE
+        elif st.session_state.current_page == "📝 Schnelleingabe":
             p_quick_entry.render()
         elif st.session_state.current_page == "📈 Analyse":
             p_analytics.render()
@@ -186,9 +202,7 @@ def main():
             p_subjects.render("SPRACHE")
         elif st.session_state.current_page == "✉️ Smart Emails":
             p_emails.render()
-        elif st.session_state.current_page == "💾 Backup & Log":
-            p_backups.render()
-        elif st.session_state.current_page == "📁 Import/Export":
+        elif st.session_state.current_page == "📁 Import/Export/Backup":
             p_data_io.render()
 
 if __name__ == "__main__":
