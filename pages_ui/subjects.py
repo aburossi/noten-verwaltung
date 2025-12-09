@@ -1,7 +1,7 @@
 import streamlit as st
 from datetime import datetime
 from utils.data_manager import save_all_data, log_audit_event
-from utils.grading import calculate_grade
+# from utils.grading import calculate_grade # Nicht mehr benötigt, da Note direkt eingegeben wird
 
 def render(subject):
     """
@@ -11,7 +11,7 @@ def render(subject):
     st.title(f"📝 {subject}")
     
     # ==========================================
-    # 1. CREATE NEW ASSIGNMENT
+    # 1. CREATE NEW ASSIGNMENT (Unverändert)
     # ==========================================
     with st.expander("➕ Neue Prüfung hinzufügen", expanded=False):
         with st.form(f"add_assignment_{subject}"):
@@ -32,6 +32,7 @@ def render(subject):
             # NEW: LMS Link Input
             assignment_url = st.text_input("LMS Link (Optional)", placeholder="https://moodle.bbw.ch/...", help="Link zum Test im LMS")
             
+            # ACHTUNG: Skala ist nicht mehr relevant für direkte Noteneingabe, aber beibehalten für Datensatz
             scale_type = st.selectbox("Bewertungsskala", options=list(st.session_state.config['scales'].keys()))
             
             if st.form_submit_button("Prüfung erstellen"):
@@ -60,7 +61,7 @@ def render(subject):
                     st.error("Bitte geben Sie einen Prüfungsnamen ein")
     
     # ==========================================
-    # 2. LIST ASSIGNMENTS
+    # 2. LIST ASSIGNMENTS (mit direktem Noten-Input)
     # ==========================================
     subject_assignments = [a for a in st.session_state.assignments if a['subject'] == subject]
     
@@ -84,7 +85,7 @@ def render(subject):
         
         with st.expander(f"📋 {link_icon}{assignment['name']} {avg_display}"):
             
-            # --- HEADER: METADATA & ACTIONS ---
+            # --- HEADER: METADATA & ACTIONS (Unverändert) ---
             col1, col2, col3 = st.columns([2, 2, 1])
             
             with col1:
@@ -120,7 +121,8 @@ def render(subject):
                     save_all_data()
                     st.rerun()
 
-            # --- PHASE 5: SMART TOOLS (BATCH OPERATIONS) ---
+            # --- PHASE 5: SMART TOOLS (BATCH OPERATIONS) (Unverändert) ---
+            # NOTE: Tool 2 (Fill Missing) funktioniert weiterhin, da es Noten setzt.
             with st.popover("⚡ Smart Tools / Automation"):
                 st.markdown("#### Batch Operations")
                 
@@ -167,8 +169,8 @@ def render(subject):
 
             st.write("---")
             
-            # --- GRADE ENTRY FORM ---
-            st.write("**Noteneingabe:**")
+            # --- GRADE ENTRY FORM: GEÄNDERT AUF NOTE STATT PUNKTE ---
+            st.write("**Noteneingabe (Note 1.0 bis 6.0):**")
             
             with st.form(f"grades_form_{assignment['id']}"):
                 # Grid Layout for inputs
@@ -179,53 +181,56 @@ def render(subject):
                 
                 for idx, student in enumerate(st.session_state.students):
                     with cols[idx % 3]:
+                        # Note: We display the current grade as the initial value
                         current_grade = assignment['grades'].get(student['id'])
                         
                         # Label construction
                         label = f"{student['Vorname']} {student['Nachname']}"
-                        if current_grade:
-                            label += f" (Aktuell: {current_grade})"
                         
-                        # Input: Points (Teacher enters points, system calculates grade)
-                        points = st.number_input(
+                        # Input: DIRECT GRADE (Teacher enters grade 1.0-6.0)
+                        new_grade_input = st.number_input(
                             label,
-                            min_value=0.0,
-                            max_value=float(assignment['maxPoints']),
-                            value=0.0,
-                            step=0.5,
-                            key=f"p_{assignment['id']}_{student['id']}"
+                            min_value=1.0,
+                            max_value=6.0,
+                            value=float(current_grade) if current_grade else None, # Set current grade as default
+                            step=0.1, # Allow 0.1 increments
+                            format="%.1f", # Display with one decimal place
+                            key=f"g_{assignment['id']}_{student['id']}"
                         )
                         
-                        # Only store if points > 0 (assuming 0 is 'no entry' for this specific input workflow)
-                        if points > 0:
-                            input_data[student['id']] = points
+                        # Only store if a valid grade (1.0 to 6.0) is entered
+                        if new_grade_input is not None and 1.0 <= new_grade_input <= 6.0:
+                            # Round to one decimal place before storing
+                            input_data[student['id']] = round(new_grade_input, 1)
 
                 # Submit Button
                 if st.form_submit_button("💾 Noten speichern"):
                     changes_log = []
                     
-                    for student_id, points in input_data.items():
-                        # Calculate Grade
-                        grade_info = calculate_grade(points, assignment['maxPoints'], assignment['scaleType'])
+                    for student_id, new_grade in input_data.items():
+                        old_grade = assignment['grades'].get(student_id)
                         
-                        if grade_info:
-                            new_grade = grade_info['note']
-                            old_grade = assignment['grades'].get(student_id, "N/A")
+                        # Ensure comparison works even if old_grade is stored as string/float
+                        old_grade_float = float(old_grade) if old_grade is not None else None
+                        
+                        # Only update if value is different
+                        if old_grade_float != new_grade:
+                            # Update assignment data directly with the new grade
+                            assignment['grades'][student_id] = new_grade
                             
-                            # Only update if changed
-                            if old_grade != new_grade:
-                                assignment['grades'][student_id] = new_grade
-                                # Find student name for log
-                                s_obj = next((s for s in st.session_state.students if s['id'] == student_id), None)
-                                s_name = f"{s_obj['Vorname']} {s_obj['Nachname']}" if s_obj else student_id
-                                changes_log.append(f"{s_name}: {old_grade} -> {new_grade}")
+                            # Find student name for log
+                            s_obj = next((s for s in st.session_state.students if s['id'] == student_id), None)
+                            s_name = f"{s_obj['Vorname']} {s_obj['Nachname']}" if s_obj else student_id
+                            
+                            changes_log.append(f"{s_name}: {old_grade_float if old_grade_float else 'N/A'} -> {new_grade}")
+                        
                     
                     if changes_log:
                         # Save and Log
-                        details = f"Prüfung: {assignment['name']}. {len(changes_log)} Änderung(en)."
+                        details = f"Prüfung: {assignment['name']}. {len(changes_log)} Änderung(en) (Direkte Note)."
                         log_audit_event("Noten eingetragen", details)
                         save_all_data()
                         st.success("✅ Noten gespeichert!")
                         st.rerun()
                     else:
-                        st.info("Keine Änderungen erkannt (Punkte eingeben zum Speichern).")
+                        st.info("Keine Änderungen erkannt (Note ändern zum Speichern).")

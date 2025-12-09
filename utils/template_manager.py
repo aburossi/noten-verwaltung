@@ -35,19 +35,20 @@ def render_template(template, student, subject_name, weighted_avg, assignments, 
     # 1. Sort assignments by date
     assignments = sorted(assignments, key=lambda x: x['date'])
 
-    # 2. Build Text List (Fallback)
+    # 2. Build Text List (Fallback) - ERWEITERT
     grades_list_text = ""
     for a in assignments:
         grade = a['grades'].get(student['id'])
         if grade:
             date_str = datetime.fromisoformat(a['date']).strftime("%d.%m.%Y")
             
-            # Text Version: Append link if available
+            # Text Version: Append link and now Type/Weight
             link_txt = f" (LMS: {a['url']})" if a.get('url') else ""
             
-            grades_list_text += f"• {a['name']}{link_txt} ({date_str}): {grade}\n"
+            # NEU: Anzeige von Typ und Gewichtung
+            grades_list_text += f"• {a['name']}{link_txt} ({a['type']}, Gewicht: {a['weight']}, {date_str}): Note {grade}\n"
 
-    # 3. Build HTML Table
+    # 3. Build HTML Table - ERWEITERT
     rows_html = ""
     for a in assignments:
         grade = a['grades'].get(student['id'])
@@ -63,11 +64,14 @@ def render_template(template, student, subject_name, weighted_avg, assignments, 
             rows_html += f"""
             <tr>
                 <td style="padding:8px; border-bottom:1px solid #ddd;">{display_name}</td>
+                <td style="padding:8px; border-bottom:1px solid #ddd;">{a['type']}</td>
+                <td style="padding:8px; border-bottom:1px solid #ddd;">{a['weight']:.1f}</td>
                 <td style="padding:8px; border-bottom:1px solid #ddd;">{date_str}</td>
                 <td style="padding:8px; border-bottom:1px solid #ddd;"><strong>{grade}</strong></td>
             </tr>
             """
 
+    # NEU: Aktualisierte Spaltenüberschriften im HTML
     grades_table_html = f"""
     <div style="font-family: Arial, sans-serif; color: #333;">
         <div style="padding: 15px; border: 1px solid #ccc; background-color: #fafafa;">
@@ -82,6 +86,8 @@ def render_template(template, student, subject_name, weighted_avg, assignments, 
             <table style="width:100%; border-collapse: collapse; background-color: #fff;">
                 <tr style="background-color: #f2f2f2;">
                     <th style="text-align:left; padding: 8px; border-bottom: 2px solid #ddd;">Prüfung</th>
+                    <th style="text-align:left; padding: 8px; border-bottom: 2px solid #ddd;">Typ</th>
+                    <th style="text-align:left; padding: 8px; border-bottom: 2px solid #ddd;">Gewichtung</th>
                     <th style="text-align:left; padding: 8px; border-bottom: 2px solid #ddd;">Datum</th>
                     <th style="text-align:left; padding: 8px; border-bottom: 2px solid #ddd;">Note</th>
                 </tr>
@@ -91,7 +97,7 @@ def render_template(template, student, subject_name, weighted_avg, assignments, 
     </div>
     """
 
-    # 4. Variable Map
+    # 4. Variable Map (Unverändert)
     variables = {
         "{firstname}": student['Vorname'],
         "{lastname}": student['Nachname'],

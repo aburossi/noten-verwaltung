@@ -180,13 +180,13 @@ def render():
                     use_container_width=True
                 )
                 
-                # Print View (Simple HTML generation)
+# Print View (Simple HTML generation)
                 with st.expander("🖨️ Bericht drucken (Vorschau)"):
                     date_str = datetime.now().strftime("%d.%m.%Y")
                     report_html = f"""
                     <div style="padding: 20px; border: 1px solid #ccc; font-family: Arial;">
                         <h2>Notenblatt: {subject}</h2>
-                        <p><strong>Schüler:</strong> {selected_student['Vorname']} {selected_student['Nachname']}<br>
+                        <p><strong>Schüler/in:</strong> {selected_student['Vorname']} {selected_student['Nachname']}<br>
                         <strong>Klasse:</strong> {st.session_state.get('current_class_id', 'Unbekannt')}<br>
                         <strong>Datum:</strong> {date_str}</p>
                         <hr>
@@ -194,10 +194,12 @@ def render():
                         <table style="width:100%; border-collapse: collapse;">
                             <tr style="background-color: #f2f2f2;">
                                 <th style="text-align:left; padding: 8px;">Prüfung</th>
+                                <th style="text-align:left; padding: 8px;">Typ</th>
+                                <th style="text-align:left; padding: 8px;">Gewicht</th>
                                 <th style="text-align:left; padding: 8px;">Datum</th>
                                 <th style="text-align:left; padding: 8px;">Note</th>
                             </tr>
-                            {''.join([f'<tr><td style="padding:8px; border-bottom:1px solid #ddd">{row["Assignment"]}</td><td style="padding:8px; border-bottom:1px solid #ddd">{row["Date"].strftime("%d.%m.%Y")}</td><td style="padding:8px; border-bottom:1px solid #ddd"><strong>{row["Grade"]}</strong></td></tr>' for _, row in df_student.iterrows()])}
+                            {''.join([f'<tr><td style="padding:8px; border-bottom:1px solid #ddd">{df_row["Assignment"]}</td><td style="padding:8px; border-bottom:1px solid #ddd">{next(a["type"] for a in st.session_state.assignments if a["name"] == df_row["Assignment"] and a["subject"] == subject)}</td><td style="padding:8px; border-bottom:1px solid #ddd">{next(a["weight"] for a in st.session_state.assignments if a["name"] == df_row["Assignment"] and a["subject"] == subject):.1f}</td><td style="padding:8px; border-bottom:1px solid #ddd">{df_row["Date"].strftime("%d.%m.%Y")}</td><td style="padding:8px; border-bottom:1px solid #ddd"><strong>{df_row["Grade"]}</strong></td></tr>' for _, df_row in df_student.iterrows()])}
                         </table>
                         <br>
                         <p>Unterschrift Lehrperson: ___________________</p>
