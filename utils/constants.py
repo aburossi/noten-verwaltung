@@ -8,7 +8,7 @@ CLASSES_DIR = os.path.join(DATA_DIR, "classes")
 # Global Config
 GLOBAL_CONFIG_FILE = os.path.join(DATA_DIR, "global_config.json")
 CLASSES_REGISTRY_FILE = os.path.join(DATA_DIR, "classes.json")
-TEMPLATES_FILE = os.path.join(DATA_DIR, "templates.json") # NEW
+TEMPLATES_FILE = os.path.join(DATA_DIR, "templates.json")
 
 # Default Configuration
 DEFAULT_CONFIG = {
@@ -26,7 +26,7 @@ DEFAULT_CONFIG = {
     'email': {
         'smtp_server': 'mail.bbw.ch',
         'smtp_port': 465,
-        'sender_email': 'pietro.rossi@bbw.ch'
+        'sender_email': ''  # <--- HIER: Leer gelassen für Datenschutz
     }
 }
 
@@ -36,12 +36,12 @@ DEFAULT_TEMPLATES = [
         "name": "Standard Notenbericht",
         "category": "Bericht",
         "subject_line": "Notenbericht {subject}",
-        "body": "Hallo {firstname},\n\nHier ist deine aktuelle Übersicht für {subject}.\n\n{grades_list}\n\nDein Schnitt: {average}\n\nGruss,\nPietro Rossi"
+        "body": "Hallo {firstname},\n\nHier ist deine aktuelle Übersicht für {subject}.\n\n{grades_list}\n\nDein Schnitt: {average}\n\nGruss,\n{sender_name}" # Optional: Variable für Absender
     },
     {
         "name": "Warnung (Ungenügend)",
         "category": "Intervention",
         "subject_line": "WICHTIG: Notenstand {subject}",
-        "body": "Hallo {firstname},\n\nLeider ist dein aktueller Schnitt in {subject} ungenügend ({average}).\n\nBitte melde dich bei mir für einen Termin.\n\nGruss,\nPietro Rossi"
+        "body": "Hallo {firstname},\n\nLeider ist dein aktueller Schnitt in {subject} ungenügend ({average}).\n\nBitte melde dich bei mir für einen Termin.\n\nGruss,\n{sender_name}"
     }
 ]
