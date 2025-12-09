@@ -2,7 +2,18 @@
 
 **Ein modernes, lokales Dashboard zur Verwaltung von Schulnoten, Klassenanalysen und Kommunikation.**
 
-Dieses Projekt ist eine Streamlit-basierte Webanwendung, die für Lehrpersonen entwickelt wurde, um den administrativen Aufwand im Schulalltag zu minimieren. Sie bietet Funktionen zur Notenerfassung, automatischen Gewichtungsberechnung, detaillierten Leistungsanalyse und personalisierten E-Mail-Kommunikation mit Schüler/innen.
+Dieses Projekt ist eine Streamlit-basierte Webanwendung, die für Lehrpersonen entwickelt wurde, um den administrativen Aufwand im Schulalltag zu minimieren.
+
+-----
+
+### 🔒 WICHTIGER HINWEIS: Local-First Design
+
+**Datenschutz hat bei diesem Projekt höchste Priorität.**
+Diese Anwendung wurde bewusst mit einer **"Local-First"-Architektur** entwickelt. Das bedeutet:
+
+1.  **Keine Cloud:** Es gibt keine zentrale Datenbank und keinen Cloud-Server, auf dem Schülerdaten gespeichert werden.
+2.  **Lokale Speicherung:** Alle sensiblen Daten (Namen, Noten, E-Mail-Adressen) verbleiben ausschliesslich auf Ihrem lokalen Gerät (im Ordner `data/`).
+3.  **Kontrolle:** Sie behalten die volle Kontrolle über Ihre Daten. Sie verlassen Ihren Rechner nur dann, wenn Sie explizit die E-Mail-Funktion nutzen.
 
 -----
 
@@ -10,9 +21,9 @@ Dieses Projekt ist eine Streamlit-basierte Webanwendung, die für Lehrpersonen e
 
 ### 🏫 Klassen- & Schülerverwaltung
 
-  * **Multi-Klassen-Support:** Verwalten Sie mehrere Klassen (z. B. "4PK26a") in einer Instanz.
+  * **Multi-Klassen-Support:** Verwalten Sie mehrere Klassen (z. B. "4PK26a") in einer einzigen Instanz.
   * **Einfacher Import:** Importieren Sie Schülerlisten und bestehende Noten bequem via Excel oder CSV.
-  * **Schüler/innen-Management:** Hinzufügen, Entfernen und Verwalten von Lernenden.
+  * **Schüler/innen-Management:** Einfaches Hinzufügen und Entfernen von Lernenden.
 
 ### 📝 Intelligentes Notenbuch
 
@@ -36,9 +47,8 @@ Dieses Projekt ist eine Streamlit-basierte Webanwendung, die für Lehrpersonen e
 
 ### 🛡️ Datensicherheit & Audit
 
-  * **Lokale Speicherung:** Alle Daten werden lokal in JSON-Dateien gespeichert (`data/`). Keine externe Datenbank notwendig.
   * **Backup-System:** Erstellen Sie manuelle oder automatische Snapshots des gesamten Systems.
-  * **Audit-Log:** Nachvollziehbarkeit aller Änderungen (z. B. "Note geändert von 4.5 auf 5.0").
+  * **Audit-Log:** Lückenlose Nachvollziehbarkeit aller Änderungen (z. B. "Note geändert von 4.5 auf 5.0").
 
 -----
 
@@ -49,7 +59,7 @@ Voraussetzung: Python 3.8 oder höher.
 1.  **Repository klonen oder herunterladen:**
 
     ```bash
-    git clone <repository-url>
+    git clone https://github.com/aburossi/noten-verwaltung
     cd aburossi-noten-verwaltung
     ```
 
@@ -61,7 +71,7 @@ Voraussetzung: Python 3.8 oder höher.
     ```
 
 3.  **Demo-Daten generieren (Optional):**
-    Um das Tool direkt mit einer gefüllten Testklasse auszuprobieren:
+    Um das Tool direkt mit einer gefüllten Testklasse auszuprobieren, führen Sie dieses Skript aus:
 
     ```bash
     python generate_demo_data.py
@@ -79,7 +89,7 @@ Voraussetzung: Python 3.8 oder höher.
 
 ### 1\. Dashboard (Startseite)
 
-Hier sehen Sie alle angelegten Klassen. Wählen Sie eine Klasse aus ("Öffnen") oder erstellen Sie eine neue Klasse.
+Hier sehen Sie alle angelegten Klassen. Wählen Sie eine Klasse aus ("Öffnen") oder erstellen Sie über das Panel rechts eine neue Klasse.
 
 ### 2\. Navigation
 
@@ -87,7 +97,7 @@ Nach dem Öffnen einer Klasse erscheint in der Sidebar das Menü:
 
   * **📊 Übersicht:** Schneller Blick auf Klassenschnitte in den Fächern (z. B. GESELLSCHAFT, SPRACHE).
   * **📈 Analyse:** Tiefere Einblicke. Identifizieren Sie schwierige Prüfungen oder Schüler/innen mit Handlungsbedarf.
-  * **📝 Fächer (z. B. GESELLSCHAFT):** Das Herzstück.
+  * **📝 Fächer (z. B. GESELLSCHAFT):** Das Herzstück der Verwaltung.
       * Erstellen Sie hier neue Prüfungen.
       * Tragen Sie Punkte ein (Note wird automatisch berechnet).
       * Nutzen Sie die "Smart Tools" (im Dropdown-Menü jeder Prüfung), um Noten anzupassen.
@@ -133,11 +143,41 @@ aburossi-noten-verwaltung/
 Die globalen Einstellungen (z. B. Bewertungsskalen, Fächerliste) befinden sich in `utils/constants.py` oder werden nach dem ersten Start in `data/global_config.json` gespeichert.
 
 **E-Mail Konfiguration:**
-Standardmässig ist der SMTP-Server auf `mail.bbw.ch` konfiguriert. Um E-Mails zu versenden, müssen Sie im Reiter "Smart Emails" Ihr Absender-Passwort eingeben (dieses wird **nicht** gespeichert, sondern nur für die aktuelle Sitzung verwendet).
+Standardmässig ist der SMTP-Server auf `mail.bbw.ch` konfiguriert. Um E-Mails zu versenden, müssen Sie im Reiter "Smart Emails" Ihr Absender-Passwort eingeben. Dieses wird **nicht** gespeichert, sondern nur für die Laufzeit der aktuellen Sitzung im Arbeitsspeicher gehalten.
+
+-----
+
+## 🔐 Datenschutz & Git-Konfiguration (WICHTIG)
+
+Wenn Sie den Programmcode mit Git verwalten (z. B. auf GitHub speichern), müssen Sie zwingend verhindern, dass echte Schülerdaten hochgeladen werden. Da der Code und die Daten strikt getrennt sind, lässt sich dies einfach über `.gitignore` lösen.
+
+### .gitignore Einrichtung
+
+Erstellen Sie im Hauptverzeichnis eine Datei namens `.gitignore` mit folgendem Inhalt:
+
+```text
+# --- BBW Notenverwaltung Gitignore ---
+
+# 1. Ignoriere alle sensiblen Daten im Data-Ordner
+data/
+
+# 2. Ignoriere Python Systemdateien & Umgebung
+__pycache__/
+*.pyc
+venv/
+.env
+.DS_Store
+```
+
+**Was bewirkt das?**
+Durch den Eintrag `data/` ignoriert Git alle Dateien in diesem Ordner.
+
+  * **Vorteil:** Sie können Updates am Programmcode (`app.py`, `utils/`) herunterladen (`git pull`), ohne dass Ihre lokalen Noten überschrieben werden.
+  * **Sicherheit:** Es landen versehentlich keine Personendaten in öffentlichen Repositories.
 
 -----
 
 ## 📄 Lizenz
 
 Dieses Projekt ist für interne Bildungszwecke konzipiert.
-Author: Pietro Rossi
+**Author:** Pietro Rossi
