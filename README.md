@@ -49,7 +49,7 @@ Voraussetzung: Python 3.8 oder höher.
 1.  **Repository klonen oder herunterladen:**
 
     ```bash
-    git clone <repository-url>
+    git clone https://github.com/aburossi/noten-verwaltung
     cd aburossi-noten-verwaltung
     ```
 
