@@ -15,6 +15,7 @@ import pages_ui.analytics as p_analytics
 import pages_ui.emails as p_emails
 import pages_ui.backups as p_backups
 import pages_ui.data_io as p_data_io
+import pages_ui.quick_entry as p_quick_entry # NEW IMPORT
 
 # ==========================================
 # NEW: LANDING PAGE (CLASS DASHBOARD)
@@ -43,18 +44,13 @@ def render_class_dashboard():
                         st.warning("Dies kann nicht rückgängig gemacht werden!")
                         
                         if st.button("Ja, löschen", key=f"del_confirm_{cls['id']}", type="primary"):
-                            # 1. Delete Logic
                             delete_class(cls['id'])
-                            
-                            # 2. Check if we deleted the active class
                             if st.session_state.get('current_class_id') == cls['id']:
                                 st.session_state.current_class_id = None
-                                # Try to switch to another class if available
                                 new_reg = get_class_registry()
                                 if new_reg:
                                     st.session_state.current_class_id = new_reg[0]['id']
                                     switch_class(new_reg[0]['id'])
-                            
                             st.rerun()
 
                 # Get quick stats
@@ -105,7 +101,6 @@ def main():
     init_directories()
     initialize_session_state()
     
-    # Initialize Navigation State if not present
     if 'current_page' not in st.session_state:
         st.session_state.current_page = "🏠 Alle Klassen"
 
@@ -113,7 +108,6 @@ def main():
     with st.sidebar:
         st.title("📚 BBW Manager")
         
-        # Display Current Class Name prominently
         registry = get_class_registry()
         current_class = next((c for c in registry if c['id'] == st.session_state.get('current_class_id')), None)
         
@@ -128,6 +122,7 @@ def main():
         options = [
             "🏠 Alle Klassen",
             "📊 Übersicht",
+            "📝 Schnelleingabe", # NEW
             "📈 Analyse", 
             "📝 GESELLSCHAFT", 
             "📝 SPRACHE", 
@@ -136,14 +131,12 @@ def main():
             "📁 Import/Export"
         ]
         
-        # Handle case where no class is selected but we are on a class page
         if not current_class and st.session_state.current_page != "🏠 Alle Klassen":
             st.session_state.current_page = "🏠 Alle Klassen"
 
         if st.session_state.current_page not in options:
             st.session_state.current_page = "🏠 Alle Klassen"
 
-        # Disable navigation if no class selected (except Dashboard)
         if not current_class:
             st.info("Bitte wählen Sie eine Klasse aus.")
             if st.button("Zum Dashboard"):
@@ -157,7 +150,6 @@ def main():
                 label_visibility="collapsed"
             )
             
-            # Update state if user clicked something new
             if selected_page != st.session_state.current_page:
                 st.session_state.current_page = selected_page
                 st.rerun()
@@ -178,15 +170,14 @@ def main():
             else: st.error(msg)
             
     # --- PAGE ROUTING ---
-    
-    # 1. Landing Page (Dashboard)
     if st.session_state.current_page == "🏠 Alle Klassen":
         render_class_dashboard()
         
-    # 2. Standard Pages (require a loaded class)
     elif current_class:
         if st.session_state.current_page == "📊 Übersicht":
             p_overview.render()
+        elif st.session_state.current_page == "📝 Schnelleingabe": # NEW ROUTE
+            p_quick_entry.render()
         elif st.session_state.current_page == "📈 Analyse":
             p_analytics.render()
         elif st.session_state.current_page == "📝 GESELLSCHAFT":

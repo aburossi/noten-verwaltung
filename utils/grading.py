@@ -49,3 +49,24 @@ def calculate_weighted_average(student_id, subject):
     if total_weight > 0:
         return round(total_weighted / total_weight, 2)
     return None
+
+def get_student_trend(student_id, subject):
+    """
+    Returns an icon and difference representing the trend between the last two graded assignments.
+    """
+    assigns = [a for a in st.session_state.assignments if a['subject'] == subject and student_id in a.get('grades', {})]
+    assigns.sort(key=lambda x: x['date'], reverse=True) # Newest first
+    
+    if len(assigns) < 2:
+        return None, 0
+    
+    try:
+        newest = float(assigns[0]['grades'][student_id])
+        previous = float(assigns[1]['grades'][student_id])
+        diff = newest - previous
+        
+        if diff > 0.2: return "📈", diff
+        elif diff < -0.2: return "📉", diff
+        else: return "➡️", diff
+    except:
+        return None, 0
