@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import json
+import io  # <--- Added for in-memory file handling
 from datetime import datetime
 from utils.data_manager import save_all_data, log_audit_event
 from utils.grading import calculate_grade
@@ -17,6 +18,9 @@ def render():
     with tab_import:
         # Import Students
         st.subheader("Schüler/innen importieren")
+        with st.expander("ℹ️ Hilfe zum Schüler-Import"):
+            st.write("Laden Sie eine Excel- oder CSV-Datei hoch mit den Spalten: `Anmeldename`, `Vorname`, `Nachname`.")
+
         uploaded_file = st.file_uploader("Excel/CSV Datei (Anmeldename, Vorname, Nachname)", type=['xlsx', 'csv'], key="student_upload")
         
         if uploaded_file:
@@ -42,17 +46,63 @@ def render():
                             count += 1
                             
                     if count > 0:
-                        log_audit_event("Import", f"{count} Schüler importiert")
+                        log_audit_event("Import", f"{count} Schüler/innen importiert")
                         save_all_data()
                         st.success(f"✅ {count} importiert")
                         st.rerun()
                     else:
-                        st.warning("Keine neuen Schüler gefunden (Duplikate?).")
+                        st.warning("Keine neuen Schüler/innen gefunden (Duplikate?).")
             except Exception as e: st.error(f"Fehler: {e}")
 
         # Import Grades
         st.write("---")
-        st.subheader("Noten importieren")
+        st.header("Noten importieren")
+
+        # --- NEW TEMPLATE GENERATOR SECTION ---
+        st.subheader("1. Vorlage erstellen (Optional)")
+        st.caption("Laden Sie hier eine Excel-Tabelle mit allen aktuellen Schüler/innen herunter, um die Noten offline einzutragen.")
+        
+        if not st.session_state.students:
+            st.warning("⚠️ Bitte importieren Sie zuerst Schüler/innen, um eine Vorlage zu erstellen.")
+        else:
+            # 1. Create Dataframe from current students
+            template_data = []
+            for s in st.session_state.students:
+                template_data.append({
+                    "Anmeldename": s['Anmeldename'],
+                    "Vorname": s['Vorname'],
+                    "Nachname": s['Nachname'],
+                    "Punkte": "",  # Empty for teacher input
+                    "Max.": 100    # Default value
+                })
+            
+            df_template = pd.DataFrame(template_data)
+            
+            # 2. Convert to Excel in memory
+            buffer = io.BytesIO()
+            with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
+                df_template.to_excel(writer, index=False, sheet_name='Notenimport')
+                
+                # Auto-adjust column width (UX improvement)
+                workbook = writer.book
+                worksheet = writer.sheets['Notenimport']
+                format_header = workbook.add_format({'bold': True, 'bg_color': '#D3D3D3'})
+                
+                for col_num, value in enumerate(df_template.columns.values):
+                    worksheet.write(0, col_num, value, format_header)
+                    worksheet.set_column(col_num, col_num, 20) # Set width to 20
+            
+            # 3. Download Button
+            file_name = f"Notenliste_Vorlage_{datetime.now().strftime('%Y-%m-%d')}.xlsx"
+            st.download_button(
+                label="📥 Leere Notenliste herunterladen (.xlsx)",
+                data=buffer.getvalue(),
+                file_name=file_name,
+                mime="application/vnd.ms-excel"
+            )
+
+        # --- EXISTING UPLOAD SECTION ---
+        st.subheader("2. Ausgefüllte Datei hochladen")
         grades_file = st.file_uploader("Noten Datei (Anmeldename, Punkte, Max)", type=['xlsx', 'csv'], key="grades_upload")
         
         if grades_file:
@@ -75,7 +125,13 @@ def render():
                         if not assignment_name:
                             st.error("Name fehlt")
                         else:
-                            max_points = df['Max.'].iloc[0] if 'Max.' in df.columns else 100
+                            # Robustly get Max Points (check if column exists, else default)
+                            if 'Max.' in df.columns and pd.notna(df['Max.'].iloc[0]):
+                                max_points = df['Max.'].iloc[0]
+                            else:
+                                max_points = 100
+                                st.warning("Spalte 'Max.' nicht gefunden oder leer. Setze Standardwert auf 100.")
+
                             new_assignment = {
                                 'id': f"assignment_{datetime.now().timestamp()}",
                                 'name': assignment_name, 'subject': subject, 'type': assignment_type,
@@ -86,14 +142,19 @@ def render():
                             count = 0
                             for _, row in df.iterrows():
                                 anmeldename = str(row['Anmeldename']).strip()
-                                points = row.get('Punkte', 0)
+                                points = row.get('Punkte', 0) # Look for 'Punkte' column
                                 student = next((s for s in st.session_state.students if s['Anmeldename'] == anmeldename), None)
                                 
-                                if student and pd.notna(points) and points > 0:
-                                    grade_info = calculate_grade(float(points), float(max_points), scale_type)
-                                    if grade_info: 
-                                        new_assignment['grades'][student['id']] = grade_info['note']
-                                        count += 1
+                                if student and pd.notna(points):
+                                    # Allow 0 points, but skip if empty/NaN
+                                    try:
+                                        p_val = float(points)
+                                        grade_info = calculate_grade(p_val, float(max_points), scale_type)
+                                        if grade_info: 
+                                            new_assignment['grades'][student['id']] = grade_info['note']
+                                            count += 1
+                                    except ValueError:
+                                        continue
                             
                             st.session_state.assignments.append(new_assignment)
                             log_audit_event("Noten-Import", f"Prüfung: {assignment_name}, {count} Noten")
@@ -109,7 +170,7 @@ def render():
         st.subheader("Schüler/in aus aktueller Klasse entfernen")
         
         if not st.session_state.students:
-            st.info("Keine Schüler in dieser Klasse.")
+            st.info("Keine Schüler/innen in dieser Klasse.")
         else:
             # Dropdown to select student
             student_to_delete = st.selectbox(
@@ -139,7 +200,7 @@ def render():
                 st.rerun()
 
             st.divider()
-            st.caption(f"Anzahl Schüler in dieser Klasse: {len(st.session_state.students)}")
+            st.caption(f"Anzahl Schüler/innen in dieser Klasse: {len(st.session_state.students)}")
 
     # ==========================================
     # TAB 3: EXPORT
