@@ -1,0 +1,110 @@
+[
+  {
+    "id": "student_charlotte.johnson",
+    "Anmeldename": "charlotte.johnson",
+    "Vorname": "Charlotte",
+    "Nachname": "Johnson"
+  },
+  {
+    "id": "student_sophia.hernandez",
+    "Anmeldename": "sophia.hernandez",
+    "Vorname": "Sophia",
+    "Nachname": "Hernandez"
+  },
+  {
+    "id": "student_evelyn.white",
+    "Anmeldename": "evelyn.white",
+    "Vorname": "Evelyn",
+    "Nachname": "White"
+  },
+  {
+    "id": "student_sophia.johnson",
+    "Anmeldename": "sophia.johnson",
+    "Vorname": "Sophia",
+    "Nachname": "Johnson"
+  },
+  {
+    "id": "student_emma.moore",
+    "Anmeldename": "emma.moore",
+    "Vorname": "Emma",
+    "Nachname": "Moore"
+  },
+  {
+    "id": "student_lucas.rodriguez",
+    "Anmeldename": "lucas.rodriguez",
+    "Vorname": "Lucas",
+    "Nachname": "Rodriguez"
+  },
+  {
+    "id": "student_mia.moore",
+    "Anmeldename": "mia.moore",
+    "Vorname": "Mia",
+    "Nachname": "Moore"
+  },
+  {
+    "id": "student_henry.miller",
+    "Anmeldename": "henry.miller",
+    "Vorname": "Henry",
+    "Nachname": "Miller"
+  },
+  {
+    "id": "student_emma.lopez",
+    "Anmeldename": "emma.lopez",
+    "Vorname": "Emma",
+    "Nachname": "Lopez"
+  },
+  {
+    "id": "student_oliver.jackson",
+    "Anmeldename": "oliver.jackson",
+    "Vorname": "Oliver",
+    "Nachname": "Jackson"
+  },
+  {
+    "id": "student_james.miller",
+    "Anmeldename": "james.miller",
+    "Vorname": "James",
+    "Nachname": "Miller"
+  },
+  {
+    "id": "student_michael.johnson",
+    "Anmeldename": "michael.johnson",
+    "Vorname": "Michael",
+    "Nachname": "Johnson"
+  },
+  {
+    "id": "student_mia.jackson",
+    "Anmeldename": "mia.jackson",
+    "Vorname": "Mia",
+    "Nachname": "Jackson"
+  },
+  {
+    "id": "student_ava.brown",
+    "Anmeldename": "ava.brown",
+    "Vorname": "Ava",
+    "Nachname": "Brown"
+  },
+  {
+    "id": "student_ava.martinez",
+    "Anmeldename": "ava.martinez",
+    "Vorname": "Ava",
+    "Nachname": "Martinez"
+  },
+  {
+    "id": "student_evelyn.smith",
+    "Anmeldename": "evelyn.smith",
+    "Vorname": "Evelyn",
+    "Nachname": "Smith"
+  },
+  {
+    "id": "student_william.smith",
+    "Anmeldename": "william.smith",
+    "Vorname": "William",
+    "Nachname": "Smith"
+  },
+  {
+    "id": "student_lucas.miller",
+    "Anmeldename": "lucas.miller",
+    "Vorname": "Lucas",
+    "Nachname": "Miller"
+  }
+]
