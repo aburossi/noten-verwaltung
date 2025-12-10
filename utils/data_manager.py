@@ -4,6 +4,7 @@ import shutil
 import glob
 import zipfile
 import streamlit as st
+import stat
 from datetime import datetime
 from .constants import (
     DATA_DIR, BACKUP_DIR, CLASSES_DIR, CLASSES_REGISTRY_FILE, 
@@ -74,16 +75,24 @@ def create_backup(auto=False, note=""):
             with open(os.path.join(backup_path, "note.txt"), "w", encoding="utf-8") as f:
                 f.write(note)
         
+        # --- FIX STARTS HERE ---
+        # Helper function to remove read-only files on Windows
+        def on_rm_error(func, path, exc_info):
+            os.chmod(path, stat.S_IWRITE)
+            func(path)
+
         # Cleanup retention (Keep last 30)
         backups = sorted(glob.glob(os.path.join(BACKUP_DIR, "backup_*")))
         if len(backups) > 30:
             for old in backups[:-30]:
-                shutil.rmtree(old)
+                # Use the helper function to force delete
+                shutil.rmtree(old, onerror=on_rm_error)
+        # --- FIX ENDS HERE ---
                 
         return True, f"Backup erstellt: {timestamp}"
     except Exception as e:
         return False, str(e)
-
+    
 def restore_backup(backup_name):
     """Restore data from a specific backup folder"""
     try:
