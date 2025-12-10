@@ -17,13 +17,51 @@ Diese Anwendung wurde bewusst mit einer **"Local-First"-Architektur** entwickelt
 
 -----
 
-## 🚀 Hauptfunktionen (Update v2.0)
+## 🚀 Schnellstart (In 3 Schritten)
+
+### 1\. Herunterladen & Entpacken
+
+Laden Sie das Projekt als **ZIP-Datei** herunter (Code -\> Download ZIP).
+
+⚠️ **WICHTIG:** Sie müssen die ZIP-Datei **zuerst entpacken** (Rechtsklick -\> "Alle extrahieren..."). Die App kann nicht direkt aus der ZIP-Datei gestartet werden.
+
+### 2\. Python prüfen
+
+Stellen Sie sicher, dass **Python** auf Ihrem Computer installiert ist.
+
+  * [Installationsanleitung hier lesen](https://www.google.com/search?q=python_installation.md)
+  * **Windows-Nutzer:** Bei der Installation muss der Haken bei **"Add Python to PATH"** gesetzt sein.
+
+### 3\. App starten
+
+#### 🪟 Für Windows
+
+Öffnen Sie den entpackten Ordner und machen Sie einen **Doppelklick** auf:
+👉 **`startAppWindos.bat`**
+
+#### 🍏 Für macOS
+
+Machen Sie einen **Doppelklick** auf:
+👉 **`startAppIOS.command`**
+
+> **Hinweis für Mac-Nutzer:**
+> Falls beim ersten Doppelklick eine Sicherheitsmeldung erscheint:
+>
+> 1.  Klicken Sie mit der **rechten Maustaste** auf `startAppIOS.command`.
+> 2.  Wählen Sie **"Öffnen"** im Kontextmenü.
+> 3.  Bestätigen Sie das Öffnen im Dialogfenster.
+
+*Beim allerersten Start werden automatisch notwendige Bibliotheken installiert. Das kann 1-2 Minuten dauern.*
+
+-----
+
+## 🚀 Hauptfunktionen (v2.0)
 
 ### ⚡ Schnelleingabe & Workflow
 
   * **📝 Schnelleingabe:** Eine Matrix-Ansicht (Grid), um Noten für mehrere Fächer und Prüfungen gleichzeitig einzutragen – ideal für schnelle Korrekturen.
   * **📋 Smart Templates:** Erstellen Sie neue Prüfungen mit einem Klick basierend auf Vorlagen ("Wochentest", "Vortrag") oder kopieren Sie die letzte Prüfung.
-  * **📊 Live-Kontext:** Sehen Sie während der Noteneingabe sofort den Klassenschnitt und visuelle Warnungen bei ungenügenden Noten (< 4.0).
+  * **📊 Live-Kontext:** Sehen Sie während der Noteneingabe sofort den Klassenschnitt und visuelle Warnungen bei ungenügenden Noten (\< 4.0).
   * **🔗 LMS-Integration:** Verlinken Sie Moodle/LMS-Kurse direkt in der Prüfungsübersicht.
 
 ### 🏫 Klassen- & Schülerverwaltung
@@ -40,56 +78,13 @@ Diese Anwendung wurde bewusst mit einer **"Local-First"-Architektur** entwickelt
 
 ### 📊 Analyse & Monitoring
 
-  * **Wochen-Summary:** Ein Dashboard zeigt auf einen Blick erledigte Prüfungen, offene E-Mails und Handlungsbedarf (Risikoschüler).
+  * **Wochen-Summary:** Ein Dashboard zeigt auf einen Blick erledigte Prüfungen und Handlungsbedarf (Risikoschüler).
   * **Trend-Erkennung:** Visuelle Indikatoren (📈📉) zeigen, ob sich ein/e Schüler/in verbessert oder verschlechtert hat.
 
 ### 🛡️ Datensicherheit
 
   * **Backup-System:** Erstellen Sie manuelle Snapshots oder laden Sie das gesamte System als ZIP herunter.
   * **Audit-Log:** Lückenlose Nachvollziehbarkeit aller Änderungen (z. B. "Note geändert von 4.5 auf 5.0").
-
------
-
-## 🛠️ Installation & Start
-
-Voraussetzung: Python 3.8 oder höher. Empfohlen Python 3.12. [Installationsanleitung](https://github.com/aburossi/noten-verwaltung/blob/main/python_installation.md)
-
-1.  **Repository klonen oder herunterladen:**
-
-    ```bash
-    git clone [https://github.com/aburossi/noten-verwaltung](https://github.com/aburossi/noten-verwaltung)
-    cd aburossi-noten-verwaltung
-    ```
-
-2.  **Abhängigkeiten installieren:**
-
-    ```bash
-    pip install -r requirements.txt
-    ```
-
-3.  **Anwendung starten:**
-
-    ```bash
-    streamlit run app.py
-    ```
-
------
-
-## 📖 Bedienungsanleitung
-
-### 1. Dashboard (Startseite)
-Hier sehen Sie alle Klassen. Nutzen Sie die **Schnellzugriff-Buttons** ("GESELLSCHAFT", "SPRACHE"), um direkt in das jeweilige Fach zu springen.
-
-### 2. Navigation & Module
-
-  * **📝 Schnelleingabe:** Die effizienteste Methode für die Noteneingabe. Bearbeiten Sie alle Fächer in einer Tabelle.
-  * **📊 Übersicht:** Zeigt den aktuellen Wochenstatus, KPIs und Klassenschnitte.
-  * **📝 Fächer (z. B. GESELLSCHAFT):**
-      * Nutzen Sie "Kopiere letzte Prüfung" für wiederkehrende Tests.
-      * Importieren Sie Notenlisten direkt via Excel.
-      * Geben Sie Noten ein (0.0 zum Löschen).
-  * **✉️ Smart Emails:** Klicken Sie auf "✨ Wochenbericht senden", um automatisch alle Schüler/innen mit neuen Noten auszuwählen.
-  * **📁 Import/Export/Backup:** Zentraler Ort für Datenmanagement, Backups und Wiederherstellung.
 
 -----
 
@@ -105,24 +100,31 @@ Das Passwort wird **nicht** gespeichert, sondern nur für die Laufzeit der Sitzu
 
 ```text
 aburossi-noten-verwaltung/
+├── startAppWindos.bat      # Launcher für Windows (Autoinstall & Start)
+├── startAppIOS.command     # Launcher für macOS (Autoinstall & Start)
 ├── app.py                  # Hauptanwendung (Streamlit Entry Point)
+├── run_app.py              # Wrapper-Skript für die Launcher
 ├── generate_demo_data.py   # Skript zur Erzeugung von Testdaten
-├── run_app.py              # Wrapper-Skript (für Deployment/Exe)
-├── requirements.txt        # Python Abhängigkeiten
+├── python_installation.md  # Anleitung für Python Installation
+├── requirements.txt        # Python Abhängigkeiten (Bibliotheken)
+├── README.md               # Diese Datei
 ├── data/                   # Lokaler Datenspeicher (JSON)
 │   ├── classes.json        # Klassen-Registry
-│   └── classes/            # Datenordner pro Klasse
+│   └── classes/            # Datenordner pro Klasse (Assignments, Schüler, Logs)
 ├── pages_ui/               # UI-Module (Frontend)
+│   ├── __init__.py
 │   ├── analytics.py        # Charts & Reports
-│   ├── backups.py          # (Legacy) Backup Logik
-│   ├── data_io.py          # Import, Export & Backup UI (Zentral)
+│   ├── backups.py          # (Veraltet, Logik nun in data_io)
+│   ├── data_io.py          # Import, Export & Backup UI
 │   ├── emails.py           # Smart Email Center
 │   ├── overview.py         # Dashboard & Wochen-Summary
-│   ├── quick_entry.py      # NEU: Matrix-Eingabe
+│   ├── quick_entry.py      # Matrix-Eingabe (Grid)
 │   └── subjects.py         # Noteneingabe & Prüfungsverwaltung
 └── utils/                  # Hilfsfunktionen (Backend Logic)
+    ├── __init__.py
     ├── constants.py        # Konfiguration & Konstanten
     ├── data_manager.py     # JSON IO, File-Handling & Backups
     ├── email_manager.py    # SMTP Versand & Change Detection
     ├── grading.py          # Notenberechnung & Trend-Logik
     └── template_manager.py # Verwaltung der E-Mail Vorlagen
+```
