@@ -1,7 +1,7 @@
 # README – Installation von Python 3.12.7 (Einsteigerfreundlich)
 
 Diese Anleitung erklärt Schritt für Schritt, wie **Python 3.12.7** auf **Windows** und **macOS** installiert wird.  
-Sie richtet sich an komplette Anfänger und kommt **ohne Terminal oder Kommandozeile** aus.
+Sie kommt **ohne Terminal oder Kommandozeile** aus.
 
 ---
 
@@ -30,11 +30,11 @@ Klicke darauf, um die Datei herunterzuladen.
 ### Installation
 1. Öffne die heruntergeladene Datei (`.exe`).
 2. Ein Installationsfenster erscheint.
-3. **Wichtig:** Setze das Häkchen bei  
-   **Add Python to PATH** (unten im Fenster).
+3. ❗❗**Wichtig:** Setze das Häkchen bei  
+   **Add Python to PATH**. .❗❗
 4. Klicke auf **Install Now**.
 5. Warte, bis die Installation abgeschlossen ist.
-6. Schließe das Fenster.
+6. Schliesse das Fenster.
 
 ### Überprüfen, ob Python installiert wurde
 1. Öffne das **Startmenü**.
