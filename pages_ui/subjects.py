@@ -2,26 +2,129 @@ import streamlit as st
 import pandas as pd
 import io
 from datetime import datetime
-from utils.data_manager import save_all_data, log_audit_event
+from utils.data_manager import save_all_data, log_audit_event, get_class_registry
 from utils.grading import calculate_weighted_average, get_student_trend, calculate_grade
+
+def generate_assignment_print_html(class_name, subject, assignment, students):
+    """Generate printable HTML for a specific assignment"""
+    
+    # Build grade rows
+    grade_rows = ""
+    grades_list = []
+    
+    for s in students:
+        grade = assignment['grades'].get(s['id'])
+        grade_text = f"{float(grade):.1f}" if grade else "-"
+        
+        if grade:
+            grades_list.append(float(grade))
+        
+        color = "#d32f2f" if grade and float(grade) < 4.0 else "#388e3c" if grade and float(grade) >= 5.0 else "#333"
+        
+        grade_rows += f"""
+        <tr>
+            <td style="padding:8px; border-bottom:1px solid #ddd;">{s['Vorname']} {s['Nachname']}</td>
+            <td style="padding:8px; border-bottom:1px solid #ddd;">{s['Anmeldename']}</td>
+            <td style="padding:8px; border-bottom:1px solid #ddd; text-align:center; color:{color}; font-weight:bold; font-size:14px;">{grade_text}</td>
+            <td style="padding:8px; border-bottom:1px solid #ddd; text-align:center;">________</td>
+        </tr>
+        """
+    
+    # Calculate statistics
+    class_avg = round(sum(grades_list) / len(grades_list), 2) if grades_list else 0
+    below_4 = len([g for g in grades_list if g < 4.0])
+    above_5 = len([g for g in grades_list if g >= 5.0])
+    
+    html = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="utf-8">
+        <title>Prüfung: {assignment['name']}</title>
+        <style>
+            @media print {{
+                body {{ margin: 0; }}
+                .no-print {{ display: none; }}
+            }}
+            body {{ font-family: Arial, sans-serif; padding: 20px; }}
+            .header {{ margin-bottom: 20px; border-bottom: 2px solid #333; padding-bottom: 10px; }}
+            .info-box {{ background-color: #f5f5f5; padding: 15px; margin-bottom: 20px; border-left: 4px solid #333; }}
+            table {{ width: 100%; border-collapse: collapse; }}
+            .footer {{ margin-top: 30px; padding-top: 10px; border-top: 1px solid #ccc; font-size: 12px; color: #666; }}
+            .stats {{ margin: 20px 0; }}
+            .stat-box {{ display: inline-block; padding: 10px 15px; margin-right: 15px; background-color: #e8f5e9; border-radius: 4px; }}
+        </style>
+    </head>
+    <body>
+        <div class="header">
+            <h1>Prüfung: {assignment['name']}</h1>
+            <p><strong>Klasse:</strong> {class_name} | <strong>Fach:</strong> {subject}</p>
+        </div>
+        
+        <div class="info-box">
+            <p style="margin:5px 0;"><strong>Typ:</strong> {assignment['type']} | <strong>Gewichtung:</strong> {assignment['weight']:.1f} | <strong>Max. Punkte:</strong> {assignment['maxPoints']}</p>
+            <p style="margin:5px 0;"><strong>Datum:</strong> {datetime.fromisoformat(assignment['date']).strftime("%d.%m.%Y")} | <strong>Bewertung:</strong> {assignment['scaleType']}</p>
+        </div>
+        
+        <div class="stats">
+            <div class="stat-box">
+                <strong>Klassenschnitt:</strong> {class_avg:.2f}
+            </div>
+            <div class="stat-box" style="background-color: #ffebee;">
+                <strong>Ungenügend (&lt;4.0):</strong> {below_4}
+            </div>
+            <div class="stat-box" style="background-color: #e8f5e9;">
+                <strong>Gut (≥5.0):</strong> {above_5}
+            </div>
+        </div>
+        
+        <table>
+            <thead>
+                <tr style="background-color: #f2f2f2;">
+                    <th style="text-align:left; padding:8px; border-bottom:2px solid #333;">Name</th>
+                    <th style="text-align:left; padding:8px; border-bottom:2px solid #333;">Anmeldename</th>
+                    <th style="text-align:center; padding:8px; border-bottom:2px solid #333; width:100px;">Note</th>
+                    <th style="text-align:center; padding:8px; border-bottom:2px solid #333; width:100px;">Unterschrift</th>
+                </tr>
+            </thead>
+            <tbody>
+                {grade_rows}
+            </tbody>
+        </table>
+        
+        <div class="footer">
+            <p><strong>Gedruckt am:</strong> {datetime.now().strftime("%d.%m.%Y, %H:%M Uhr")}</p>
+            <p>Unterschrift Lehrperson: _________________________________</p>
+        </div>
+        
+        <div class="no-print" style="margin-top: 20px; text-align: center;">
+            <button onclick="window.print()" style="padding: 10px 20px; font-size: 16px; cursor: pointer;">🖨️ Drucken</button>
+            <button onclick="window.close()" style="padding: 10px 20px; font-size: 16px; cursor: pointer; margin-left: 10px;">Schließen</button>
+        </div>
+    </body>
+    </html>
+    """
+    return html
 
 def render(subject):
     st.title(f"📝 {subject}")
+    
+    # Get class name
+    registry = get_class_registry()
+    current_class = next((c for c in registry if c['id'] == st.session_state.get('current_class_id')), None)
+    class_name = current_class['name'] if current_class else "Unbekannte Klasse"
     
     subject_assignments = [a for a in st.session_state.assignments if a['subject'] == subject]
     subject_assignments.sort(key=lambda x: x['date'], reverse=True)
 
     # ==========================================
-    # 1. ADD ASSIGNMENT (WITH TABS FOR MANUAL / IMPORT)
+    # 1. ADD ASSIGNMENT (Existing Logic - Unchanged)
     # ==========================================
     with st.expander("➕ Neue Prüfung hinzufügen", expanded=False):
         
-        # Tabs for Create vs Import
         tab_create, tab_import = st.tabs(["✍️ Manuell erstellen", "📥 Aus Excel importieren"])
 
-        # --- TAB A: MANUAL (Existing Logic) ---
         with tab_create:
-            # Actions: Copy / Template
             col_actions = st.columns([1, 1, 2])
             with col_actions[0]:
                 if subject_assignments:
@@ -83,7 +186,6 @@ def render(subject):
                             'grades': {}
                         }
                         st.session_state.assignments.append(new_assignment)
-                        # Clear temp
                         for k in ['new_assign_name', 'new_assign_type', 'new_assign_weight', 'new_assign_max']: 
                             if k in st.session_state: del st.session_state[k]
 
@@ -94,11 +196,9 @@ def render(subject):
                     else:
                         st.error("Bitte geben Sie einen Namen ein")
 
-        # --- TAB B: IMPORT (New) ---
         with tab_import:
             st.info(f"Importieren Sie eine Notenliste direkt in das Fach **{subject}**.")
             
-            # Download Template Helper
             template_data = []
             for s in st.session_state.students:
                 template_data.append({"Anmeldename": s['Anmeldename'], "Vorname": s['Vorname'], "Nachname": s['Nachname'], "Punkte": ""})
@@ -115,7 +215,6 @@ def render(subject):
                 help="Excel-Datei mit Schülerliste"
             )
             
-            # Form for Import
             with st.form(f"import_assignment_{subject}"):
                 up_file = st.file_uploader("Excel Datei (Spalten: Anmeldename, Punkte)", type=['xlsx', 'csv'])
                 
@@ -139,7 +238,7 @@ def render(subject):
                             new_assign = {
                                 'id': f"assignment_{datetime.now().timestamp()}",
                                 'name': imp_name,
-                                'subject': subject, # Auto-set to current subject
+                                'subject': subject,
                                 'type': imp_type,
                                 'weight': imp_weight,
                                 'maxPoints': imp_max,
@@ -172,7 +271,7 @@ def render(subject):
                             st.error(f"Import Fehler: {e}")
 
     # ==========================================
-    # 2. LIST ASSIGNMENTS (Existing Logic)
+    # 2. LIST ASSIGNMENTS (Enhanced with Print)
     # ==========================================
     if not subject_assignments:
         st.info("Noch keine Prüfungen vorhanden.")
@@ -184,6 +283,27 @@ def render(subject):
         link_icon = "🔗 " if assignment.get('url') else ""
         
         with st.expander(f"📋 {link_icon}{assignment['name']} {avg_display}"):
+            # PRINT BUTTON in header
+            col_header, col_print_btn = st.columns([5, 1])
+            with col_print_btn:
+                if st.button("🖨️", key=f"print_{assignment['id']}", help="Prüfung drucken"):
+                    print_html = generate_assignment_print_html(
+                        class_name,
+                        subject,
+                        assignment,
+                        st.session_state.students
+                    )
+                    st.components.v1.html(
+                        f"""
+                        <script>
+                            var printWindow = window.open('', '_blank');
+                            printWindow.document.write(`{print_html.replace('`', '\\`')}`);
+                            printWindow.document.close();
+                        </script>
+                        """,
+                        height=0
+                    )
+            
             col1, col2, col3 = st.columns([2, 2, 1])
             with col1:
                 st.caption(f"Max: {assignment['maxPoints']} Pkt | Typ: {assignment['type']}")
@@ -209,7 +329,6 @@ def render(subject):
 
             st.divider()
             
-            # --- NOTENEINGABE ---
             if grades_vals:
                 curr_avg = sum(grades_vals) / len(grades_vals)
                 below_4 = len([g for g in grades_vals if g < 4.0])
