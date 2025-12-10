@@ -71,13 +71,13 @@ def render_class_dashboard():
                 col_sub1, col_sub2 = st.columns(2)
                 
                 with col_sub1:
-                    if st.button("GESELLSCHAFT", key=f"btn_ges_{cls['id']}", use_container_width=True):
+                    if st.button("GES", key=f"btn_ges_{cls['id']}", use_container_width=True):
                         switch_class(cls['id'])
                         st.session_state.current_page = "📝 GESELLSCHAFT"
                         st.rerun()
                 
                 with col_sub2:
-                    if st.button("SPRACHE", key=f"btn_spr_{cls['id']}", use_container_width=True):
+                    if st.button("SUK", key=f"btn_spr_{cls['id']}", use_container_width=True):
                         switch_class(cls['id'])
                         st.session_state.current_page = "📝 SPRACHE"
                         st.rerun()
