@@ -29,7 +29,7 @@ Laden Sie das Projekt als **ZIP-Datei** herunter (Code -\> Download ZIP).
 
 Stellen Sie sicher, dass **Python** auf Ihrem Computer installiert ist.
 
-  * [Installationsanleitung hier lesen](https://www.google.com/search?q=python_installation.md)
+  * [Installationsanleitung hier lesen](https://github.com/aburossi/noten-verwaltung/blob/main/python_installation.md)
   * **Windows-Nutzer:** Bei der Installation muss der Haken bei **"Add Python to PATH"** gesetzt sein.
 
 ### 3\. App starten
