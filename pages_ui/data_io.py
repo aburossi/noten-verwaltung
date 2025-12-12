@@ -3,31 +3,33 @@ import pandas as pd
 import io 
 from datetime import datetime
 import os
+import json
 from utils.data_manager import (
     save_all_data, log_audit_event, get_available_backups, 
-    create_backup, restore_backup, create_zip_export, import_zip_backup
+    create_backup, restore_backup, create_zip_export, import_zip_backup,
+    get_class_registry, load_json, save_json, CLASSES_DIR
 )
 from utils.grading import calculate_grade
 
 def render():
     st.title("📁 Daten & System")
     
-    # Updated Tabs to include Backups
+    # Tabs Setup
     tab_import, tab_manage, tab_export, tab_backup = st.tabs([
         "📥 Import", 
         "👤 Schüler verwalten", 
         "📤 Export",
-        "💾 Backup & Log" # Merged here
+        "💾 Backup & Log" 
     ])
     
     # ==========================================
-    # TAB 1: IMPORT (UNCHANGED LOGIC)
+    # TAB 1: IMPORT
     # ==========================================
     with tab_import:
         st.header("📊 Noten importieren")
         
-        # Template Download
-        with st.expander("📄 Excel-Vorlage erstellen (Optional)", expanded=False):
+        # --- NOTEN IMPORT LOGIK (Bestehend) ---
+        with st.expander("📄 Excel-Vorlage für Noten erstellen (Optional)", expanded=False):
             st.caption("Laden Sie hier eine Liste Ihrer Schüler herunter.")
             if not st.session_state.students:
                 st.warning("Keine Schüler vorhanden.")
@@ -55,7 +57,7 @@ def render():
                     mime="application/vnd.ms-excel"
                 )
 
-        st.write("###### Datei hochladen")
+        st.write("###### Noten hochladen")
         import_mode = st.radio(
             "Modus wählen", 
             ["🆕 Neue Prüfung erstellen", "🔄 Bestehende Prüfung aktualisieren"], 
@@ -157,12 +159,115 @@ def render():
             except Exception as e: st.error(f"Fehler: {e}")
 
         st.divider()
-        with st.expander("🏫 Neue Klasse / Schüler importieren (Semesterstart)", expanded=False):
-            st.info("Laden Sie eine Excel- oder CSV-Datei hoch mit den Spalten: `Anmeldename`, `Vorname`, `Nachname`.")
+        
+        # --- NEW: STUDENT IMPORT WITH CONFIRMATION ---
+        with st.expander("🏫 Neue Klasse / Schüler importieren (Semesterstart)", expanded=True):
+            st.info("Laden Sie eine Excel- oder CSV-Datei hoch.")
             uploaded_file = st.file_uploader("Schüler-Liste hochladen", type=['xlsx', 'csv'], key="student_upload")
+            
             if uploaded_file:
-                # (Existing logic omitted for brevity - assumed working)
-                pass
+                try:
+                    # 1. Analyse file content for preview
+                    if uploaded_file.name.endswith('.csv'):
+                        df_students = pd.read_csv(uploaded_file)
+                    else:
+                        df_students = pd.read_excel(uploaded_file)
+
+                    df_students.columns = df_students.columns.str.strip()
+                    required = ['Anmeldename', 'Vorname', 'Nachname']
+                    missing = [col for col in required if col not in df_students.columns]
+
+                    if missing:
+                        st.error(f"❌ Datei ungültig. Fehlende Spalten: {', '.join(missing)}")
+                    else:
+                        # 2. Select Target Class
+                        st.write("---")
+                        st.markdown("#### 🎯 Ziel-Klasse auswählen")
+                        
+                        registry = get_class_registry()
+                        current_id = st.session_state.get('current_class_id')
+                        
+                        # Find index of current class
+                        default_idx = 0
+                        for i, c in enumerate(registry):
+                            if c['id'] == current_id:
+                                default_idx = i
+                                break
+                        
+                        target_class = st.selectbox(
+                            "In welche Klasse sollen die Schüler importiert werden?",
+                            registry,
+                            format_func=lambda x: x['name'],
+                            index=default_idx
+                        )
+
+                        # Logic differences
+                        is_current_class = (target_class['id'] == current_id)
+                        
+                        if not is_current_class:
+                            st.warning(f"⚠️ Achtung: Sie importieren in **{target_class['name']}**, nicht in die aktuell geöffnete Klasse.")
+
+                        # Preview stats
+                        valid_rows = df_students.dropna(subset=['Anmeldename']).shape[0]
+                        st.caption(f"Gefundene Einträge: {valid_rows}")
+
+                        # 3. Confirmation Action
+                        if st.button(f"🚀 Import in '{target_class['name']}' bestätigen", type="primary"):
+                            
+                            count_new = 0
+                            count_skipped = 0
+                            
+                            # Load target list (either from RAM or Disk)
+                            target_students = []
+                            if is_current_class:
+                                target_students = st.session_state.students
+                            else:
+                                # Load from disk
+                                path = os.path.join(CLASSES_DIR, target_class['id'], "students.json")
+                                target_students = load_json(path, [])
+
+                            # Process
+                            for _, row in df_students.iterrows():
+                                aname = str(row['Anmeldename']).strip()
+                                vname = str(row['Vorname']).strip()
+                                nname = str(row['Nachname']).strip()
+
+                                if not aname or aname.lower() == 'nan':
+                                    continue
+
+                                # Check duplicates in target list
+                                if any(s['Anmeldename'] == aname for s in target_students):
+                                    count_skipped += 1
+                                    continue
+                                
+                                new_student = {
+                                    "id": f"student_{aname}",
+                                    "Anmeldename": aname,
+                                    "Vorname": vname,
+                                    "Nachname": nname
+                                }
+                                target_students.append(new_student)
+                                count_new += 1
+                            
+                            # Save back
+                            if count_new > 0:
+                                if is_current_class:
+                                    # Update session and save all
+                                    # st.session_state.students is ref to target_students
+                                    save_all_data()
+                                    st.success(f"✅ {count_new} Schüler in aktuelle Klasse importiert!")
+                                    st.rerun()
+                                else:
+                                    # Save specific file
+                                    path = os.path.join(CLASSES_DIR, target_class['id'], "students.json")
+                                    save_json(path, target_students)
+                                    log_audit_event("Schüler-Import (Extern)", f"{count_new} hinzugefügt", class_id=target_class['id'])
+                                    st.success(f"✅ {count_new} Schüler in Klasse '{target_class['name']}' gespeichert!")
+                            else:
+                                st.warning("⚠️ Keine neuen Schüler hinzugefügt (alle existierten bereits).")
+
+                except Exception as e:
+                    st.error(f"Fehler beim Lesen der Datei: {e}")
 
     # ==========================================
     # TAB 2: MANAGE STUDENTS (UNCHANGED)
@@ -184,6 +289,8 @@ def render():
                 save_all_data()
                 st.success("Gelöscht!")
                 st.rerun()
+        else:
+            st.info("Keine Schüler in dieser Klasse.")
 
     # ==========================================
     # TAB 3: EXPORT (UNCHANGED)
@@ -195,7 +302,7 @@ def render():
             st.download_button("Download CSV", df.to_csv(index=False), "students.csv", "text/csv")
 
     # ==========================================
-    # TAB 4: BACKUP & LOG (MOVED FROM backups.py)
+    # TAB 4: BACKUP & LOG
     # ==========================================
     with tab_backup:
         st.subheader("📦 Backup Management")
