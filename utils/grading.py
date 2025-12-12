@@ -1,7 +1,9 @@
 import streamlit as st
 
 def calculate_grade(points, max_points, scale_type='60% Scale'):
-    if not points or not max_points or max_points == 0:
+    # OLD (Buggy): if not points or not max_points or max_points == 0:
+    # NEW (Correct): We check if points is specifically None
+    if points is None or not max_points or max_points == 0:
         return None
     
     percentage = points / max_points
