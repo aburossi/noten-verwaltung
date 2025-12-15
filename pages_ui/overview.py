@@ -4,8 +4,22 @@ import plotly.express as px
 from datetime import datetime, timedelta
 from utils.grading import calculate_weighted_average
 
+def get_color_for_grade(grade):
+    """Return color hex code based on grade thresholds"""
+    if grade is None: return "#333333"
+    
+    val = float(grade)
+    if val >= 4.5:
+        return "#28a745" # Green
+    elif val >= 4.0:
+        return "#ffc107" # Yellow (Darker for readability)
+    elif val >= 3.5:
+        return "#fd7e14" # Orange
+    else:
+        return "#dc3545" # Red
+
 def generate_print_html(class_name, students, subjects, config):
-    """Generate printable HTML for class overview"""
+    """Generate printable HTML for class overview with new color coding"""
     
     # Build student data
     table_rows = ""
@@ -21,8 +35,11 @@ def generate_print_html(class_name, students, subjects, config):
             avg = calculate_weighted_average(student['id'], subject)
             avg_text = f"{avg:.2f}" if avg else "-"
             
-            # Color coding
-            color = "#d32f2f" if avg and avg < 4.0 else "#388e3c" if avg and avg >= 5.0 else "#333"
+            # New Color Logic
+            color = get_color_for_grade(avg)
+            # Make yellow darker/readable on white paper if needed, but standard hex is okay
+            if color == "#ffc107": color = "#d39e00" 
+            
             row += f'<td style="padding:8px; border-bottom:1px solid #ddd; color:{color}; font-weight:bold;">{avg_text}</td>'
             
             if avg:
@@ -31,7 +48,9 @@ def generate_print_html(class_name, students, subjects, config):
         # Overall average
         overall_avg = round(sum(subject_avgs) / len(subject_avgs), 2) if subject_avgs else None
         overall_text = f"{overall_avg:.2f}" if overall_avg else "-"
-        overall_color = "#d32f2f" if overall_avg and overall_avg < 4.0 else "#388e3c" if overall_avg and overall_avg >= 5.0 else "#333"
+        
+        overall_color = get_color_for_grade(overall_avg)
+        if overall_color == "#ffc107": overall_color = "#d39e00"
         
         row += f'<td style="padding:8px; border-bottom:1px solid #ddd; color:{overall_color}; font-weight:bold; background-color:#f5f5f5;">{overall_text}</td>'
         row += "</tr>"
@@ -55,6 +74,8 @@ def generate_print_html(class_name, students, subjects, config):
             .header {{ margin-bottom: 20px; border-bottom: 2px solid #333; padding-bottom: 10px; }}
             table {{ width: 100%; border-collapse: collapse; }}
             .footer {{ margin-top: 30px; padding-top: 10px; border-top: 1px solid #ccc; font-size: 12px; color: #666; }}
+            .legend {{ margin-top: 10px; font-size: 12px; }}
+            .legend span {{ margin-right: 15px; font-weight: bold; }}
         </style>
     </head>
     <body>
@@ -78,8 +99,15 @@ def generate_print_html(class_name, students, subjects, config):
             </tbody>
         </table>
         
+        <div class="legend">
+            <strong>Legende:</strong> 
+            <span style="color:#28a745;">■ ≥ 4.5 (Gut)</span>
+            <span style="color:#d39e00;">■ 4.0-4.5 (Genügend)</span>
+            <span style="color:#fd7e14;">■ 3.5-4.0 (Ungnügend)</span>
+            <span style="color:#dc3545;">■ < 3.5 (Kritisch)</span>
+        </div>
+        
         <div class="footer">
-            <p><strong>Legende:</strong> <span style="color:#d32f2f;">■</span> Ungenügend (&lt;4.0) | <span style="color:#388e3c;">■</span> Gut (≥5.0)</p>
             <p>Unterschrift Lehrperson: _________________________________</p>
         </div>
         
@@ -117,7 +145,6 @@ def render():
                 st.session_state.config['subjects'],
                 st.session_state.config
             )
-            # Open in new window for printing
             st.components.v1.html(
                 f"""
                 <script>
@@ -167,7 +194,7 @@ def render():
     st.write("---")
 
     # ==========================================
-    # STANDARD OVERVIEW
+    # STANDARD OVERVIEW (WITH COLOR)
     # ==========================================
     col1, col2 = st.columns(2)
     
@@ -182,7 +209,6 @@ def render():
                     avg_grades.append(avg)
             
             class_avg = round(sum(avg_grades) / len(avg_grades), 2) if avg_grades else 0
-            num_assignments = len([a for a in st.session_state.assignments if a['subject'] == subject])
             
             st.metric("Klassendurchschnitt", f"{class_avg:.2f}")
             
@@ -196,6 +222,8 @@ def render():
                 st.plotly_chart(fig, use_container_width=True)
     
     st.subheader("Alle Schüler/innen")
+    
+    # 1. Prepare Data
     table_data = []
     for student in st.session_state.students:
         row = {
@@ -205,13 +233,41 @@ def render():
         subject_avgs = []
         for subject in st.session_state.config['subjects']:
             avg = calculate_weighted_average(student['id'], subject)
-            row[subject] = f"{avg:.2f}" if avg else "-"
+            row[subject] = float(f"{avg:.2f}") if avg else None
             if avg:
                 subject_avgs.append(avg)
         
         overall_avg = round(sum(subject_avgs) / len(subject_avgs), 2) if subject_avgs else None
-        row['Gesamt Ø'] = f"{overall_avg:.2f}" if overall_avg else "-"
+        row['Gesamt Ø'] = float(f"{overall_avg:.2f}") if overall_avg else None
         table_data.append(row)
     
     df = pd.DataFrame(table_data)
-    st.dataframe(df, use_container_width=True, hide_index=True)
+
+    # 2. Define Style Function
+    def color_grades(val):
+        if pd.isna(val) or isinstance(val, str):
+            return ''
+        
+        color = ''
+        if val >= 4.5:
+            color = '#28a745' # Green
+        elif val >= 4.0:
+            color = '#d39e00' # Yellow/Gold (Darker for readability)
+        elif val >= 3.5:
+            color = '#fd7e14' # Orange
+        else:
+            color = '#dc3545' # Red
+            
+        return f'color: {color}; font-weight: bold'
+
+    # 3. Apply Style
+    # Identify numeric columns (subjects + Overall)
+    numeric_cols = st.session_state.config['subjects'] + ['Gesamt Ø']
+    styled_df = df.style.map(color_grades, subset=numeric_cols)
+    
+    # Format numbers
+    styled_df = styled_df.format("{:.2f}", subset=numeric_cols, na_rep="-")
+
+    st.dataframe(styled_df, use_container_width=True, hide_index=True, height=500)
+    
+    st.caption("Legende: 🟢 ≥ 4.5 | 🟡 4.0 - 4.5 | 🟠 3.5 - 4.0 | 🔴 < 3.5")

@@ -73,17 +73,23 @@ def render():
             st.subheader("Aktueller Status")
             col1, col2, col3 = st.columns(3)
             
-            # Identify "At Risk" students (< 4.0)
+            # Identify "At Risk" students (< 4.0) with Grades
             at_risk = []
             for s in st.session_state.students:
                 avg = calculate_weighted_average(s['id'], subject)
                 if avg and avg < 4.0:
-                    at_risk.append(s)
+                    at_risk.append({
+                        "name": f"{s['Vorname']} {s['Nachname']}",
+                        "avg": avg,
+                        "id": s['id']
+                    })
             
+            # Sort by lowest grade first
+            at_risk.sort(key=lambda x: x['avg'])
+
             with col1:
                 st.metric("Anzahl Prüfungen", len(df_class))
             with col2:
-                current_class_avg = calculate_weighted_average("dummy", subject) # This won't work perfectly, let's calc manually
                 all_avgs = [calculate_weighted_average(s['id'], subject) for s in st.session_state.students]
                 all_avgs = [a for a in all_avgs if a is not None]
                 real_class_avg = sum(all_avgs)/len(all_avgs) if all_avgs else 0
@@ -95,8 +101,22 @@ def render():
                     st.metric("Risikoschüler", "0", "✅")
 
             if at_risk:
-                st.warning(f"🚨 **Handlungsbedarf:** {len(at_risk)} Schüler/innen unter 4.0: " + 
-                          ", ".join([f"{s['Vorname']} {s['Nachname']}" for s in at_risk]))
+                # NEW: Clickable list (Expander)
+                with st.expander(f"🚨 {len(at_risk)} Schüler/innen unter 4.0 anzeigen (Klicken für Details)", expanded=True):
+                    
+                    risk_df = pd.DataFrame(at_risk)
+                    risk_df['avg'] = risk_df['avg'].apply(lambda x: f"{x:.2f}")
+                    
+                    st.dataframe(
+                        risk_df[['name', 'avg']], 
+                        column_config={
+                            "name": "Name",
+                            "avg": "Durchschnitt"
+                        },
+                        hide_index=True,
+                        use_container_width=True
+                    )
+                    st.caption("Wechseln Sie zum Reiter '👤 Schülerdetails' um einzelne Verläufe zu sehen.")
 
             st.write("---")
 
@@ -180,7 +200,7 @@ def render():
                     use_container_width=True
                 )
                 
-# Print View (Simple HTML generation)
+                # Print View (Simple HTML generation)
                 with st.expander("🖨️ Bericht drucken (Vorschau)"):
                     date_str = datetime.now().strftime("%d.%m.%Y")
                     report_html = f"""

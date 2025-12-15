@@ -6,14 +6,19 @@ from utils.data_manager import save_all_data, log_audit_event, get_class_registr
 from utils.grading import calculate_weighted_average, get_student_trend, calculate_grade
 
 def generate_assignment_print_html(class_name, subject, assignment, students):
-    """Generate printable HTML for a specific assignment"""
+    """Generate printable HTML for a specific assignment including comments"""
     
+    # Ensure comments dict exists
+    comments = assignment.get('comments', {})
+
     # Build grade rows
     grade_rows = ""
     grades_list = []
     
     for s in students:
         grade = assignment['grades'].get(s['id'])
+        comment = comments.get(s['id'], "")
+        
         grade_text = f"{float(grade):.1f}" if grade else "-"
         
         if grade:
@@ -26,6 +31,7 @@ def generate_assignment_print_html(class_name, subject, assignment, students):
             <td style="padding:8px; border-bottom:1px solid #ddd;">{s['Vorname']} {s['Nachname']}</td>
             <td style="padding:8px; border-bottom:1px solid #ddd;">{s['Anmeldename']}</td>
             <td style="padding:8px; border-bottom:1px solid #ddd; text-align:center; color:{color}; font-weight:bold; font-size:14px;">{grade_text}</td>
+            <td style="padding:8px; border-bottom:1px solid #ddd; font-style:italic; color:#555;">{comment}</td>
             <td style="padding:8px; border-bottom:1px solid #ddd; text-align:center;">________</td>
         </tr>
         """
@@ -83,7 +89,8 @@ def generate_assignment_print_html(class_name, subject, assignment, students):
                 <tr style="background-color: #f2f2f2;">
                     <th style="text-align:left; padding:8px; border-bottom:2px solid #333;">Name</th>
                     <th style="text-align:left; padding:8px; border-bottom:2px solid #333;">Anmeldename</th>
-                    <th style="text-align:center; padding:8px; border-bottom:2px solid #333; width:100px;">Note</th>
+                    <th style="text-align:center; padding:8px; border-bottom:2px solid #333; width:80px;">Note</th>
+                    <th style="text-align:left; padding:8px; border-bottom:2px solid #333;">Kommentar</th>
                     <th style="text-align:center; padding:8px; border-bottom:2px solid #333; width:100px;">Unterschrift</th>
                 </tr>
             </thead>
@@ -118,7 +125,7 @@ def render(subject):
     subject_assignments.sort(key=lambda x: x['date'], reverse=True)
 
     # ==========================================
-    # 1. ADD ASSIGNMENT (Existing Logic - Unchanged)
+    # 1. ADD ASSIGNMENT
     # ==========================================
     with st.expander("➕ Neue Prüfung hinzufügen", expanded=False):
         
@@ -183,7 +190,8 @@ def render(subject):
                             'scaleType': scale_type,
                             'url': assignment_url.strip(),
                             'date': datetime.now().isoformat(),
-                            'grades': {}
+                            'grades': {},
+                            'comments': {} # Initialize comments
                         }
                         st.session_state.assignments.append(new_assignment)
                         for k in ['new_assign_name', 'new_assign_type', 'new_assign_weight', 'new_assign_max']: 
@@ -245,7 +253,8 @@ def render(subject):
                                 'scaleType': '60% Scale',
                                 'url': imp_url.strip(),
                                 'date': datetime.now().isoformat(),
-                                'grades': {}
+                                'grades': {},
+                                'comments': {} # Initialize comments
                             }
                             
                             count = 0
@@ -271,13 +280,17 @@ def render(subject):
                             st.error(f"Import Fehler: {e}")
 
     # ==========================================
-    # 2. LIST ASSIGNMENTS (Enhanced with Print)
+    # 2. LIST ASSIGNMENTS
     # ==========================================
     if not subject_assignments:
         st.info("Noch keine Prüfungen vorhanden.")
         return
     
     for assignment in subject_assignments:
+        # Backward compatibility for existing assignments without comments
+        if 'comments' not in assignment:
+            assignment['comments'] = {}
+
         grades_vals = [float(g) for g in assignment['grades'].values() if g]
         avg_display = f" (Ø {sum(grades_vals) / len(grades_vals):.2f})" if grades_vals else ""
         link_icon = "🔗 " if assignment.get('url') else ""
@@ -336,30 +349,82 @@ def render(subject):
                 stat_col1.metric("Ø Live", f"{curr_avg:.2f}")
                 stat_col2.metric("Unter 4.0", f"{below_4}", delta_color="inverse")
             
+            # --- UPDATED: List View for Grades + Comments ---
+            st.write("**Noten & Kommentare eingeben:**")
+            st.caption("Kommentare (z.B. 'Bonus', 'fehlt entschuldigt') erscheinen im Email-Bericht.")
+            
             with st.form(f"grades_form_{assignment['id']}"):
                 input_data = {}
-                for idx, student in enumerate(st.session_state.students):
-                    if idx % 2 == 0: cols = st.columns([1, 1])
-                    with cols[idx % 2]:
-                        current_grade = assignment['grades'].get(student['id'])
-                        val = float(current_grade) if current_grade else 0.0
-                        trend_icon, _ = get_student_trend(student['id'], subject)
-                        lbl = f"{student['Vorname']} {student['Nachname']} {trend_icon if trend_icon else ''}"
-                        new_grade_input = st.number_input(lbl, min_value=0.0, max_value=6.0, value=val, step=0.5, format="%.1f", key=f"g_{assignment['id']}_{student['id']}")
-                        if new_grade_input is not None: input_data[student['id']] = round(new_grade_input, 1)
+                comment_data = {}
+                
+                # Header
+                h1, h2, h3 = st.columns([2, 1, 3])
+                h1.markdown("**Name**")
+                h2.markdown("**Note**")
+                h3.markdown("**Kommentar / Bemerkung**")
+                
+                for student in st.session_state.students:
+                    c_name, c_grade, c_comm = st.columns([2, 1, 3])
+                    
+                    # 1. Name Column
+                    trend_icon, _ = get_student_trend(student['id'], subject)
+                    c_name.markdown(f"{student['Vorname']} {student['Nachname']} {trend_icon if trend_icon else ''}")
+                    
+                    # 2. Grade Column
+                    current_grade = assignment['grades'].get(student['id'])
+                    val = float(current_grade) if current_grade else 0.0
+                    new_grade_input = c_grade.number_input(
+                        "Note", 
+                        min_value=0.0, 
+                        max_value=6.0, 
+                        value=val, 
+                        step=0.5, 
+                        format="%.1f", 
+                        key=f"g_{assignment['id']}_{student['id']}",
+                        label_visibility="collapsed"
+                    )
+                    if new_grade_input is not None: 
+                        input_data[student['id']] = round(new_grade_input, 1)
+                        
+                    # 3. Comment Column
+                    current_comment = assignment['comments'].get(student['id'], "")
+                    new_comment = c_comm.text_input(
+                        "Kommentar",
+                        value=current_comment,
+                        key=f"c_{assignment['id']}_{student['id']}",
+                        label_visibility="collapsed",
+                        placeholder="Optional"
+                    )
+                    if new_comment is not None:
+                        comment_data[student['id']] = new_comment
 
                 st.write("")
-                if st.form_submit_button("💾 Noten speichern", type="primary", use_container_width=True):
+                if st.form_submit_button("💾 Noten & Kommentare speichern", type="primary", use_container_width=True):
                     changes_log = []
+                    
+                    # Update Grades
                     for student_id, new_grade in input_data.items():
                         old_grade = assignment['grades'].get(student_id)
                         old_grade_float = float(old_grade) if old_grade is not None else None
+                        
                         if new_grade == 0.0 and old_grade_float is not None:
                             del assignment['grades'][student_id]
-                            changes_log.append("Deleted")
+                            changes_log.append("Deleted Grade")
                         elif new_grade > 0.0 and new_grade != old_grade_float:
                             assignment['grades'][student_id] = new_grade
-                            changes_log.append("Changed")
+                            changes_log.append("Changed Grade")
+                            
+                    # Update Comments
+                    for student_id, new_comment in comment_data.items():
+                        old_comment = assignment['comments'].get(student_id, "")
+                        if new_comment.strip() != old_comment:
+                            if new_comment.strip():
+                                assignment['comments'][student_id] = new_comment.strip()
+                            else:
+                                if student_id in assignment['comments']:
+                                    del assignment['comments'][student_id]
+                            changes_log.append("Changed Comment")
+                    
                     if changes_log:
                         save_all_data()
                         st.success(f"✅ {len(changes_log)} Änderungen gespeichert!")

@@ -28,7 +28,7 @@ def render():
     with tab_import:
         st.header("📊 Noten importieren")
         
-        # --- NOTEN IMPORT LOGIK (Bestehend) ---
+        # --- NOTEN IMPORT LOGIK ---
         with st.expander("📄 Excel-Vorlage für Noten erstellen (Optional)", expanded=False):
             st.caption("Laden Sie hier eine Liste Ihrer Schüler herunter.")
             if not st.session_state.students:
@@ -41,7 +41,7 @@ def render():
                         "Vorname": s['Vorname'],
                         "Nachname": s['Nachname'],
                         "Punkte": "",  
-                        "Max.": 100    
+                        "Max.": 100     
                     })
                 df_template = pd.DataFrame(template_data)
                 
@@ -103,7 +103,8 @@ def render():
                                     'scaleType': '60% Scale',
                                     'url': assignment_url.strip(),
                                     'date': datetime.now().isoformat(),
-                                    'grades': {}
+                                    'grades': {},
+                                    'comments': {} # Ensure comments dict is initialized
                                 }
                                 
                                 count = 0
@@ -160,14 +161,13 @@ def render():
 
         st.divider()
         
-        # --- NEW: STUDENT IMPORT WITH CONFIRMATION ---
+        # --- STUDENT IMPORT ---
         with st.expander("🏫 Neue Klasse / Schüler importieren (Semesterstart)", expanded=True):
             st.info("Laden Sie eine Excel- oder CSV-Datei hoch.")
             uploaded_file = st.file_uploader("Schüler-Liste hochladen", type=['xlsx', 'csv'], key="student_upload")
             
             if uploaded_file:
                 try:
-                    # 1. Analyse file content for preview
                     if uploaded_file.name.endswith('.csv'):
                         df_students = pd.read_csv(uploaded_file)
                     else:
@@ -180,14 +180,12 @@ def render():
                     if missing:
                         st.error(f"❌ Datei ungültig. Fehlende Spalten: {', '.join(missing)}")
                     else:
-                        # 2. Select Target Class
                         st.write("---")
                         st.markdown("#### 🎯 Ziel-Klasse auswählen")
                         
                         registry = get_class_registry()
                         current_id = st.session_state.get('current_class_id')
                         
-                        # Find index of current class
                         default_idx = 0
                         for i, c in enumerate(registry):
                             if c['id'] == current_id:
@@ -201,32 +199,26 @@ def render():
                             index=default_idx
                         )
 
-                        # Logic differences
                         is_current_class = (target_class['id'] == current_id)
                         
                         if not is_current_class:
                             st.warning(f"⚠️ Achtung: Sie importieren in **{target_class['name']}**, nicht in die aktuell geöffnete Klasse.")
 
-                        # Preview stats
                         valid_rows = df_students.dropna(subset=['Anmeldename']).shape[0]
                         st.caption(f"Gefundene Einträge: {valid_rows}")
 
-                        # 3. Confirmation Action
                         if st.button(f"🚀 Import in '{target_class['name']}' bestätigen", type="primary"):
                             
                             count_new = 0
                             count_skipped = 0
                             
-                            # Load target list (either from RAM or Disk)
                             target_students = []
                             if is_current_class:
                                 target_students = st.session_state.students
                             else:
-                                # Load from disk
                                 path = os.path.join(CLASSES_DIR, target_class['id'], "students.json")
                                 target_students = load_json(path, [])
 
-                            # Process
                             for _, row in df_students.iterrows():
                                 aname = str(row['Anmeldename']).strip()
                                 vname = str(row['Vorname']).strip()
@@ -235,7 +227,6 @@ def render():
                                 if not aname or aname.lower() == 'nan':
                                     continue
 
-                                # Check duplicates in target list
                                 if any(s['Anmeldename'] == aname for s in target_students):
                                     count_skipped += 1
                                     continue
@@ -249,16 +240,12 @@ def render():
                                 target_students.append(new_student)
                                 count_new += 1
                             
-                            # Save back
                             if count_new > 0:
                                 if is_current_class:
-                                    # Update session and save all
-                                    # st.session_state.students is ref to target_students
                                     save_all_data()
                                     st.success(f"✅ {count_new} Schüler in aktuelle Klasse importiert!")
                                     st.rerun()
                                 else:
-                                    # Save specific file
                                     path = os.path.join(CLASSES_DIR, target_class['id'], "students.json")
                                     save_json(path, target_students)
                                     log_audit_event("Schüler-Import (Extern)", f"{count_new} hinzugefügt", class_id=target_class['id'])
@@ -270,7 +257,7 @@ def render():
                     st.error(f"Fehler beim Lesen der Datei: {e}")
 
     # ==========================================
-    # TAB 2: MANAGE STUDENTS (UNCHANGED)
+    # TAB 2: MANAGE STUDENTS
     # ==========================================
     with tab_manage:
         st.subheader("Schüler/in entfernen")
@@ -282,10 +269,13 @@ def render():
             )
             if st.button("🗑️ Löschen", type="primary"):
                 st.session_state.students.remove(student_to_delete)
-                # Cleanup grades
+                # Cleanup grades and comments
                 for a in st.session_state.assignments:
                     if student_to_delete['id'] in a['grades']:
                         del a['grades'][student_to_delete['id']]
+                    if 'comments' in a and student_to_delete['id'] in a['comments']:
+                        del a['comments'][student_to_delete['id']]
+                        
                 save_all_data()
                 st.success("Gelöscht!")
                 st.rerun()
@@ -293,7 +283,7 @@ def render():
             st.info("Keine Schüler in dieser Klasse.")
 
     # ==========================================
-    # TAB 3: EXPORT (UNCHANGED)
+    # TAB 3: EXPORT
     # ==========================================
     with tab_export:
         st.subheader("Schülerliste")

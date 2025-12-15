@@ -16,6 +16,9 @@ CLASS_ID = "class_demo_2025"
 FIRST_NAMES = ["Emma", "Liam", "Noah", "Olivia", "William", "Ava", "James", "Isabella", "Oliver", "Sophia", "Benjamin", "Mia", "Lucas", "Charlotte", "Henry", "Amelia", "Alexander", "Harper", "Michael", "Evelyn"]
 LAST_NAMES = ["Smith", "Johnson", "Brown", "Taylor", "Miller", "Davis", "Garcia", "Rodriguez", "Wilson", "Martinez", "Anderson", "Thomas", "Hernandez", "Moore", "Martin", "Jackson", "Thompson", "White", "Lopez", "Lee"]
 
+# COMMENTS DATABASE
+COMMENTS = ["Gut gemacht!", "Bitte mehr Details beim nächsten Mal.", "Bonus +0.5", "Sehr gute Präsentation", "Schrift kaum lesbar", "Zu spät abgegeben", "Hervorragend", "knapp genügend"]
+
 def ensure_dirs():
     if os.path.exists(os.path.join(CLASSES_DIR, CLASS_ID)):
         shutil.rmtree(os.path.join(CLASSES_DIR, CLASS_ID))
@@ -71,7 +74,8 @@ def generate_assignments(students):
             "maxPoints": max_points,
             "scaleType": scale,
             "date": (datetime.now() - timedelta(days=days_ago)).isoformat(),
-            "grades": {}
+            "grades": {},
+            "comments": {} # Initialize comments
         }
 
         # Generate grades with a distribution
@@ -92,6 +96,10 @@ def generate_assignments(students):
             # 10% chance of missing grade
             if random.random() > 0.1:
                 assignment["grades"][student["id"]] = note
+                
+                # 20% chance of a comment
+                if random.random() > 0.8:
+                    assignment["comments"][student["id"]] = random.choice(COMMENTS)
         
         assignments.append(assignment)
     
