@@ -25,6 +25,14 @@ def render_class_dashboard():
 
     registry = get_class_registry()
     
+    # Filter Archived Classes
+    col_filter, _ = st.columns([1, 2])
+    with col_filter:
+        show_archived = st.checkbox("🗄️ Archivierte Klassen anzeigen", value=False)
+    
+    if not show_archived:
+        registry = [c for c in registry if not c.get('archived', False)]
+    
     # Grid Layout for Classes
     cols = st.columns(3)
     

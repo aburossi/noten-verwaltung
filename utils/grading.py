@@ -1,4 +1,19 @@
+import math
 import streamlit as st
+
+
+def round_to_half(number):
+    """
+    Rounds a number to the nearest 0.5.
+    Example: 4.25 -> 4.5, 4.24 -> 4.0, 4.75 -> 5.0
+    Standard commercial rounding for halves:
+    - x.25 -> x.5
+    - x.75 -> x+1.0
+    """
+    if number is None:
+        return None
+    return math.floor(number * 2 + 0.5) / 2
+
 
 def calculate_grade(points, max_points, scale_type='60% Scale'):
     # OLD (Buggy): if not points or not max_points or max_points == 0:

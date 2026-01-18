@@ -225,6 +225,20 @@ def delete_class(class_id):
         except Exception as e:
             print(f"Error deleting folder {class_path}: {e}")
 
+def rename_class(class_id, new_name, archived=False):
+    """
+    Renames a class in the registry and optionally marks it as archived.
+    """
+    registry = get_class_registry()
+    for cls in registry:
+        if cls['id'] == class_id:
+            cls['name'] = new_name
+            if archived:
+                cls['archived'] = True
+            # Update last_accessed or modified if we tracked that
+            break
+    save_json(CLASSES_REGISTRY_FILE, registry)
+
 def initialize_session_state():
     registry = get_class_registry()
     

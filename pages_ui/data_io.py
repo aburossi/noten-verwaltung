@@ -7,7 +7,8 @@ import json
 from utils.data_manager import (
     save_all_data, log_audit_event, get_available_backups, 
     create_backup, restore_backup, create_zip_export, import_zip_backup,
-    get_class_registry, load_json, save_json, CLASSES_DIR
+    get_class_registry, load_json, save_json, CLASSES_DIR,
+    rename_class, create_new_class, switch_class
 )
 from utils.grading import calculate_grade
 
@@ -15,10 +16,11 @@ def render():
     st.title("📁 Daten & System")
     
     # Tabs Setup
-    tab_import, tab_manage, tab_export, tab_backup = st.tabs([
+    tab_import, tab_manage, tab_export, tab_sem, tab_backup = st.tabs([
         "📥 Import", 
         "👤 Schüler verwalten", 
         "📤 Export",
+        "🎓 Semesterwechsel",
         "💾 Backup & Log" 
     ])
     
@@ -292,7 +294,78 @@ def render():
             st.download_button("Download CSV", df.to_csv(index=False), "students.csv", "text/csv")
 
     # ==========================================
-    # TAB 4: BACKUP & LOG
+    # TAB 4: SEMESTER SWITCH
+    # ==========================================
+    with tab_sem:
+        st.subheader("🎓 Neues Semester starten")
+        st.info("Hier können Sie das aktuelle Semester archivieren und sauber in ein neues starten.")
+        
+        current_class_id = st.session_state.get('current_class_id')
+        registry = get_class_registry()
+        current_cls = next((c for c in registry if c['id'] == current_class_id), None)
+        
+        if not current_cls:
+            st.error("Keine aktive Klasse ausgewählt.")
+        else:
+            with st.container(border=True):
+                st.markdown("### 1. Aktuelles Semester archivieren")
+                archive_name = st.text_input(
+                    "Name für das Archiv", 
+                    value=f"{current_cls['name']} (Archiv)",
+                    help="Wie soll die aktuelle Klasse im Archiv heissen?"
+                )
+                
+                st.markdown("### 2. Neues Semester erstellen")
+                new_sem_name = st.text_input(
+                    "Name der neuen Klasse", 
+                    placeholder="z.B. BMS 25/26 - Semester 2",
+                    help="Name der neuen Klasse, die erstellt wird."
+                )
+                
+                st.write("")
+                st.warning("⚠️ Dieser Vorgang erstellt ein Backup, benennt die aktuelle Klasse um und erstellt eine neue, leere Klasse.")
+                
+                copy_students = st.checkbox("👥 Schüler in neues Semester übernehmen", value=True)
+                
+                if st.button("🚀 Semester abschliessen & Neu starten", type="primary"):
+                    if not archive_name or not new_sem_name:
+                        st.error("Bitte beide Namen angeben.")
+                    else:
+                        # 1. Capture current students if needed
+                        students_to_transfer = st.session_state.students if copy_students else []
+                        
+                        # 2. Create Safety Backup
+                        b_succ, b_msg = create_backup(auto=True, note=f"Semesterwechsel: {current_cls['name']} -> {new_sem_name}")
+                        if not b_succ:
+                            st.error(f"Backup fehlgeschlagen: {b_msg}. Abbruch.")
+                        else:
+                            try:
+                                # 3. Rename Old Class
+                                rename_class(current_class_id, archive_name, archived=True)
+                                
+                                # 4. Create New Class
+                                new_id = create_new_class(new_sem_name)
+                                
+                                # 5. Switch to New Class
+                                switch_class(new_id)
+                                
+                                # 6. Restore Students if requested
+                                if students_to_transfer:
+                                    st.session_state.students = students_to_transfer
+                                    save_all_data(create_auto_backup=False) # Save immediately in new folder
+                                    log_audit_event("Semesterstart", f"{len(students_to_transfer)} Schüler übernommen.")
+                                
+                                st.success(f"✅ Semesterwechsel erfolgreich! Willkommen in {new_sem_name}.")
+                                st.balloons()
+                                
+                                # 7. Set Page to Dashboard
+                                st.session_state.current_page = "📊 Übersicht"
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"Fehler beim Semesterwechsel: {e}")
+
+    # ==========================================
+    # TAB 5: BACKUP & LOG
     # ==========================================
     with tab_backup:
         st.subheader("📦 Backup Management")

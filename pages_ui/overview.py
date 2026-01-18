@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 from datetime import datetime, timedelta
-from utils.grading import calculate_weighted_average
+from utils.grading import calculate_weighted_average, round_to_half
 
 def get_color_for_grade(grade):
     """Return color hex code based on grade thresholds"""
@@ -35,12 +35,19 @@ def generate_print_html(class_name, students, subjects, config):
             avg = calculate_weighted_average(student['id'], subject)
             avg_text = f"{avg:.2f}" if avg else "-"
             
-            # New Color Logic
-            color = get_color_for_grade(avg)
-            # Make yellow darker/readable on white paper if needed, but standard hex is okay
-            if color == "#ffc107": color = "#d39e00" 
+            # Rounded Subject Grade
+            zeugnis_val = round_to_half(avg)
+            zeugnis_text = f"{zeugnis_val:.1f}" if zeugnis_val else "-"
             
-            row += f'<td style="padding:8px; border-bottom:1px solid #ddd; color:{color}; font-weight:bold;">{avg_text}</td>'
+            # Colors
+            color_avg = get_color_for_grade(avg)
+            if color_avg == "#ffc107": color_avg = "#d39e00"
+            
+            color_zeugnis = get_color_for_grade(zeugnis_val)
+            if color_zeugnis == "#ffc107": color_zeugnis = "#d39e00"
+            
+            row += f'<td style="padding:8px; border-bottom:1px solid #ddd; color:{color_avg};">{avg_text}</td>'
+            row += f'<td style="padding:8px; border-bottom:1px solid #ddd; color:{color_zeugnis}; font-weight:bold; background-color:#f9f9f9;">{zeugnis_text}</td>'
             
             if avg:
                 subject_avgs.append(avg)
@@ -52,12 +59,16 @@ def generate_print_html(class_name, students, subjects, config):
         overall_color = get_color_for_grade(overall_avg)
         if overall_color == "#ffc107": overall_color = "#d39e00"
         
-        row += f'<td style="padding:8px; border-bottom:1px solid #ddd; color:{overall_color}; font-weight:bold; background-color:#f5f5f5;">{overall_text}</td>'
+        row += f'<td style="padding:8px; border-bottom:1px solid #ddd; color:{overall_color}; font-weight:bold; background-color:#e8f0fe;">{overall_text}</td>'
         row += "</tr>"
         table_rows += row
     
     # Build subject headers
-    subject_headers = "".join([f'<th style="text-align:left; padding:8px; border-bottom:2px solid #333;">{s}</th>' for s in subjects])
+    # We need 2 columns per subject: Name + Note
+    subject_headers = ""
+    for s in subjects:
+        subject_headers += f'<th style="text-align:left; padding:8px; border-bottom:2px solid #333;">{s}</th>'
+        subject_headers += f'<th style="text-align:left; padding:8px; border-bottom:2px solid #333; background-color:#f9f9f9;">Note</th>'
     
     html = f"""
     <!DOCTYPE html>
@@ -223,9 +234,22 @@ def render():
     
     st.subheader("Alle Schüler/innen")
     
+    # Sorting Control
+    sort_option = st.radio("Sortierung", ["Vorname", "Nachname"], horizontal=True)
+    
+    sorted_students = st.session_state.students
+    if sort_option == "Nachname":
+        sorted_students = sorted(st.session_state.students, key=lambda s: (s['Nachname'], s['Vorname']))
+    else:
+        sorted_students = sorted(st.session_state.students, key=lambda s: (s['Vorname'], s['Nachname']))
+    
     # 1. Prepare Data
     table_data = []
-    for student in st.session_state.students:
+    
+    # Track dynamic column names
+    subject_cols = []
+    
+    for student in sorted_students:
         row = {
             'Name': f"{student['Vorname']} {student['Nachname']}",
             'Anmeldename': student['Anmeldename']
@@ -233,17 +257,50 @@ def render():
         subject_avgs = []
         for subject in st.session_state.config['subjects']:
             avg = calculate_weighted_average(student['id'], subject)
+            
+            # 1. Raw Subject Average
             row[subject] = float(f"{avg:.2f}") if avg else None
+            if subject not in subject_cols: subject_cols.append(subject)
+            
+            # 2. Rounded Subject Average (Zeugnisnote)
+            zeugnis_col_name = f"{subject} (Z)"
+            zeugnis_val = round_to_half(avg)
+            row[zeugnis_col_name] = zeugnis_val
+            if zeugnis_col_name not in subject_cols: subject_cols.append(zeugnis_col_name)
+
             if avg:
                 subject_avgs.append(avg)
-        
+
+        # Overall Average (Arithmetic)
         overall_avg = round(sum(subject_avgs) / len(subject_avgs), 2) if subject_avgs else None
         row['Gesamt Ø'] = float(f"{overall_avg:.2f}") if overall_avg else None
+        
         table_data.append(row)
     
     df = pd.DataFrame(table_data)
+    
+    # 2. Add Class Averages Row
+    if not df.empty:
+        avg_row = {'Name': '<b>Ø KLASSE</b>', 'Anmeldename': ''}
+        
+        # Calculate averages for all numeric columns
+        for col in subject_cols + ['Gesamt Ø']:
+            if col in df.columns:
+                # Filter out None/NaN before processing
+                valid_values = [x for x in df[col] if pd.notna(x)]
+                if valid_values:
+                    avg_val = sum(valid_values) / len(valid_values)
+                    avg_row[col] = avg_val
+                else:
+                    avg_row[col] = None
+        
+        # Create a DataFrame for the average row
+        avg_df = pd.DataFrame([avg_row])
+        
+        # Append to main DataFrame
+        df = pd.concat([df, avg_df], ignore_index=True)
 
-    # 2. Define Style Function
+    # 3. Define Style Function
     def color_grades(val):
         if pd.isna(val) or isinstance(val, str):
             return ''
@@ -260,14 +317,46 @@ def render():
             
         return f'color: {color}; font-weight: bold'
 
-    # 3. Apply Style
-    # Identify numeric columns (subjects + Overall)
-    numeric_cols = st.session_state.config['subjects'] + ['Gesamt Ø']
+    # 4. Apply Style & Formatting
+    numeric_cols = subject_cols + ['Gesamt Ø']
     styled_df = df.style.map(color_grades, subset=numeric_cols)
     
-    # Format numbers
-    styled_df = styled_df.format("{:.2f}", subset=numeric_cols, na_rep="-")
+    # Identify rows
+    student_rows = df.index[:-1] if not df.empty and "Ø KLASSE" in df.iloc[-1]['Name'] else df.index
+    avg_row_idx = df.index[-1] if not df.empty and "Ø KLASSE" in df.iloc[-1]['Name'] else None
+    
+    # Format Student Rows
+    # Raw subjects & Overall -> 2 decimals
+    raw_cols = [c for c in (st.session_state.config['subjects'] + ['Gesamt Ø']) if c in df.columns]
+    styled_df = styled_df.format("{:.2f}", subset=pd.IndexSlice[student_rows, raw_cols], na_rep="-")
+    
+    # Rounded columns -> 1 decimal
+    rounded_cols = [c for c in subject_cols if "(Z)" in c and c in df.columns]
+    styled_df = styled_df.format("{:.1f}", subset=pd.IndexSlice[student_rows, rounded_cols], na_rep="-")
+    
+    # Format Average Row (All numeric -> 2 decimals)
+    if avg_row_idx is not None:
+         styled_df = styled_df.format("{:.2f}", subset=pd.IndexSlice[avg_row_idx, numeric_cols], na_rep="-")
 
-    st.dataframe(styled_df, use_container_width=True, hide_index=True, height=500)
+    # 5. Column Configuration (Narrow columns)
+    column_config = {
+        "Name": st.column_config.TextColumn("Name", width="medium", pinned=True),
+        "Anmeldename": st.column_config.TextColumn("Anmeldename", width="medium"),
+        # Remove format here to let Styler control it
+        "Gesamt Ø": st.column_config.NumberColumn("Gesamt Ø", width="small"),
+    }
+    
+    for sub in st.session_state.config['subjects']:
+         # Remove format here to let Styler control it
+         column_config[sub] = st.column_config.NumberColumn(sub, width="small")
+         column_config[f"{sub} (Z)"] = st.column_config.NumberColumn(f"{sub} (Note)", help=f"Zeugnisnote {sub}", width="small")
+
+    st.dataframe(
+        styled_df, 
+        use_container_width=True, 
+        hide_index=True, 
+        height=500,
+        column_config=column_config
+    )
     
     st.caption("Legende: 🟢 ≥ 4.5 | 🟡 4.0 - 4.5 | 🟠 3.5 - 4.0 | 🔴 < 3.5")

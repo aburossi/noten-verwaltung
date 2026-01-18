@@ -191,6 +191,7 @@ def render(subject):
                             'url': assignment_url.strip(),
                             'date': datetime.now().isoformat(),
                             'grades': {},
+                            'points': {}, # Initialize points
                             'comments': {} # Initialize comments
                         }
                         st.session_state.assignments.append(new_assignment)
@@ -254,6 +255,7 @@ def render(subject):
                                 'url': imp_url.strip(),
                                 'date': datetime.now().isoformat(),
                                 'grades': {},
+                                'points': {},
                                 'comments': {} # Initialize comments
                             }
                             
@@ -265,7 +267,12 @@ def render(subject):
                                 
                                 if student and pd.notna(points):
                                     try:
-                                        g_info = calculate_grade(float(points), float(imp_max))
+                                        p_val = float(points)
+                                        # Save points
+                                        new_assign['points'][student['id']] = p_val
+                                        
+                                        # Calculate Grade
+                                        g_info = calculate_grade(p_val, float(imp_max))
                                         if g_info: 
                                             new_assign['grades'][student['id']] = g_info['note']
                                             count += 1
@@ -350,43 +357,74 @@ def render(subject):
                 stat_col2.metric("Unter 4.0", f"{below_4}", delta_color="inverse")
             
             # --- UPDATED: List View for Grades + Comments ---
-            st.write("**Noten & Kommentare eingeben:**")
-            st.caption("Kommentare (z.B. 'Bonus', 'fehlt entschuldigt') erscheinen im Email-Bericht.")
+            st.write("**Punkte & Kommentare eingeben:**")
+            st.caption("Geben Sie die Punktzahl ein. Die Note wird automatisch berechnet.")
             
+            # Init points dict if missing (legacy compatibility)
+            if 'points' not in assignment:
+                assignment['points'] = {}
+
             with st.form(f"grades_form_{assignment['id']}"):
-                input_data = {}
+                input_points = {}
                 comment_data = {}
                 
                 # Header
-                h1, h2, h3 = st.columns([2, 1, 3])
+                h1, h2, h3, h4 = st.columns([2, 1, 1, 2])
                 h1.markdown("**Name**")
-                h2.markdown("**Note**")
-                h3.markdown("**Kommentar / Bemerkung**")
+                h2.markdown("**Punkte**")
+                h3.markdown("**Note**")
+                h4.markdown("**Kommentar**")
                 
                 for student in st.session_state.students:
-                    c_name, c_grade, c_comm = st.columns([2, 1, 3])
+                    c_name, c_points, c_grade_display, c_comm = st.columns([2, 1, 1, 2])
                     
                     # 1. Name Column
                     trend_icon, _ = get_student_trend(student['id'], subject)
                     c_name.markdown(f"{student['Vorname']} {student['Nachname']} {trend_icon if trend_icon else ''}")
                     
-                    # 2. Grade Column
-                    current_grade = assignment['grades'].get(student['id'])
-                    val = float(current_grade) if current_grade else 0.0
-                    new_grade_input = c_grade.number_input(
-                        "Note", 
+                    # 2. Points Input
+                    current_points = assignment['points'].get(student['id'])
+                    # If no points but grade exists (legacy), we can't easily guess points. Leave 0.0 or None.
+                    # User must enter points to update.
+                    
+                    val_points = float(current_points) if current_points is not None else 0.0
+                    
+                    new_points_input = c_points.number_input(
+                        "Punkte", 
                         min_value=0.0, 
-                        max_value=6.0, 
-                        value=val, 
+                        max_value=float(assignment['maxPoints']), 
+                        value=val_points, 
                         step=0.5, 
                         format="%.1f", 
-                        key=f"g_{assignment['id']}_{student['id']}",
+                        key=f"p_{assignment['id']}_{student['id']}",
                         label_visibility="collapsed"
                     )
-                    if new_grade_input is not None: 
-                        input_data[student['id']] = round(new_grade_input, 1)
+                    
+                    # Store input for saving
+                    input_points[student['id']] = new_points_input
+
+                    # 3. Calculated Grade Display (Dynamic Preview based on SAVED or INPUT if strictly reactive? Form submit means we see saved)
+                    # Actually, we want to see the grade for the *saved* points or the *current* grade.
+                    # Since we are in a form, we can't react live to input without st.session_state callbacks or rerun, but form prevents rerun.
+                    # So we display the grade corresponding to the CURRENT saved state.
+                    
+                    # However, if points are missing but grade exists (legacy), show grade.
+                    saved_grade = assignment['grades'].get(student['id'])
+                    
+                    # Calculate what the grade WOULD be based on current points (if we had live update).
+                    # But here we just show the stored grade.
+                    grade_display = "-"
+                    grade_color = "#333"
+                    
+                    if saved_grade:
+                        grade_val = float(saved_grade)
+                        grade_display = f"{grade_val:.1f}"
+                        if grade_val >= 5.0: grade_color = "#388e3c"
+                        elif grade_val < 4.0: grade_color = "#d32f2f"
+                    
+                    c_grade_display.markdown(f"<span style='font-size:16px; font-weight:bold; color:{grade_color}'>{grade_display}</span>", unsafe_allow_html=True)
                         
-                    # 3. Comment Column
+                    # 4. Comment Column
                     current_comment = assignment['comments'].get(student['id'], "")
                     new_comment = c_comm.text_input(
                         "Kommentar",
@@ -399,20 +437,52 @@ def render(subject):
                         comment_data[student['id']] = new_comment
 
                 st.write("")
-                if st.form_submit_button("💾 Noten & Kommentare speichern", type="primary", use_container_width=True):
+                if st.form_submit_button("💾 Punkte & Kommentare speichern", type="primary", use_container_width=True):
                     changes_log = []
                     
-                    # Update Grades
-                    for student_id, new_grade in input_data.items():
-                        old_grade = assignment['grades'].get(student_id)
-                        old_grade_float = float(old_grade) if old_grade is not None else None
+                    max_p = float(assignment['maxPoints'])
+                    
+                    for student_id, new_p_val in input_points.items():
+                        # Logic:
+                        # If 0.0 -> Assume empty/delete? Or is 0 points valid?
+                        # Usually 0 points is valid (Note 1).
+                        # We need a way to clear? Maybe empty input? st.number_input doesn't allow None easily if initialized with float.
+                        # Let's assume if it matches "current_points" (which might be None->0.0), no change?
+                        # Check if changed
                         
-                        if new_grade == 0.0 and old_grade_float is not None:
-                            del assignment['grades'][student_id]
-                            changes_log.append("Deleted Grade")
-                        elif new_grade > 0.0 and new_grade != old_grade_float:
-                            assignment['grades'][student_id] = new_grade
-                            changes_log.append("Changed Grade")
+                        old_p_val = assignment['points'].get(student_id)
+                        old_p_float = float(old_p_val) if old_p_val is not None else 0.0
+                        
+                        # Only update if changed or if it was None and now is 0.0 (explicit set)
+                        # Actually easier: Just save whatever is in the box?
+                        # But we need to handle "Delete".
+                        # For now, let's update if different.
+                        
+                        # Handle Legacy case where points were missing but grade existed.
+                        # If user leaves it at 0.0, and grade exists, do we overwrite grade to 1.0 (0 points)?
+                        # DANGER.
+                        # If legacy (no points, has grade) and user submits 0.0 -> It might be they didn't touch it.
+                        # We should skip if points were None and input is 0.0 ? 
+                        # But what if they WANT to give 0 points?
+                        
+                        # Better approach: check if modified using session state? form doesn't support that easily.
+                        # Let's trust the input. If legacy user wants to keep grade, they must enter points.
+                        # OR: We only update if points dict has entry OR input > 0.
+                        
+                        if new_p_val == 0.0 and old_p_val is None and student_id in assignment['grades']:
+                             # Legacy protection: User didn't enter points (default 0), but grade exists. Don't overwrite.
+                             continue
+                        
+                        if new_p_val != old_p_float or (old_p_val is None and new_p_val == 0.0):
+                             # Update Points
+                             assignment['points'][student_id] = new_p_val
+                             
+                             # Calculate and Update Grade
+                             g_res = calculate_grade(new_p_val, max_p, assignment.get('scaleType', '60% Scale'))
+                             if g_res:
+                                 assignment['grades'][student_id] = g_res['note']
+                             
+                             changes_log.append("Updated Grade")
                             
                     # Update Comments
                     for student_id, new_comment in comment_data.items():
@@ -427,5 +497,5 @@ def render(subject):
                     
                     if changes_log:
                         save_all_data()
-                        st.success(f"✅ {len(changes_log)} Änderungen gespeichert!")
+                        st.success(f"✅ Noten aktualisiert!")
                         st.rerun()
