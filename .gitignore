@@ -1,14 +1,29 @@
 # ===========================
 # 🛡️ DATA PRIVACY (CRITICAL)
 # ===========================
-# Ignore all actual data and configuration files
-data/
-backups/
 
-# Exception: Keep the directory structure, but not the files
-# (Uncomment the next lines if you want empty folders to be tracked)
-# !data/.gitkeep
-# !backups/.gitkeep
+# 1. Block everything in data/ and the classes/ subfolder by default
+data/*
+data/classes/*
+
+# 2. Block all JSON files globally (safety net)
+*.json
+
+# ===========================
+# ✅ EXCEPTIONS (Allow Demo)
+# ===========================
+
+# Allow the folder structure to exist
+!data/.gitkeep
+!data/classes/
+
+# Allow the Master Registry File
+# (⚠️ WARNING: Ensure this file only contains the Demo Class before committing!)
+!data/classes.json
+
+# Allow the specific Demo Class folder and its contents
+!data/classes/class_demo_2025/
+!data/classes/class_demo_2025/*.json
 
 # ===========================
 # 🐍 PYTHON / ENVIRONMENT
